@@ -1,0 +1,4 @@
+mcp>=0.1.0
+pyyaml>=6.0.1
+pydantic>=2.5.0
+requests>=2.31.0 
