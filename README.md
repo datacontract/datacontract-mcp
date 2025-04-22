@@ -1,68 +1,112 @@
 # DataContract MCP Server
 
-An MCP server for executing semantic queries against data contracts.
+An MCP server for working with Data Contracts - loading, querying, and analyzing contract definitions.
 
 ## Installation
 
+### Prerequisites
+
+- Python 3.13 or higher
+- [uv](https://astral.sh/uv) (recommended)
+
 ### Using uv (recommended)
 
-1. Install uv if you haven't already:
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-2. Install the required dependencies:
-```bash
-uv pip install -r requirements.txt
+uv pip install -e .
 ```
 
 ### Using pip
 
-1. Install the required dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ## Running the Server
 
 ```bash
-python server.py
+python -m datacontract_mcp.server
 ```
 
-## Usage
+## Adding to Claude Desktop (for local development)
 
-The server provides a `query` tool that can be used to execute semantic queries against data contracts.
+Add this to your Claude Desktop configuration:
 
-Example query:
-```python
+```json
 {
-    "data_contract_url": "example_contract.yaml",  # Can be local file or URL
-    "query": "Show me recent high-value orders from premium customers",
-    "filters": {
-        "order_date": "last 30 days",
-        "total_amount": "> 1000"
+  "mcpServers": {
+    "datacontract": {
+      "command": "uv",
+      "args": ["run", "--directory", "<abs_repo_path>", "python", "-c", "from datacontract_mcp import main; main()"],
+      "env": {
+        "DATACONTRACTS_SOURCE": "<abs_repo_path>/datacontracts"
+      }
     }
+  }
 }
 ```
 
-The `data_contract_url` parameter supports:
-- Local file paths (e.g., "example_contract.yaml")
-- File URLs (e.g., "file:///path/to/contract.yaml")
-- HTTP/HTTPS URLs (e.g., "https://example.com/contract.yaml")
+## Available Tools
+
+### Get Data Contract Schema
+
+Retrieves the official Data Contract JSON schema:
+
+```
+datacontracts_get_schema
+```
+
+### List Data Contracts
+
+Lists all available Data Contracts in the datacontracts directory:
+
+```
+datacontracts_list_datacontracts
+```
+
+### Get Data Contract
+
+Retrieves the content of a specific Data Contract:
+
+```
+datacontracts_get_datacontract(filename="orders.datacontract.yaml")
+```
+
+### Query Data Contract
+
+Executes a read-only SQL query against data defined in a Data Contract:
+
+```
+datacontracts_query_datacontract(
+    filename="orders.datacontract.yaml",
+    query="SELECT * FROM \"orders\" LIMIT 10"
+)
+```
+
+## Available Resources
+
+The server provides access to these resources:
+
+- `datacontract-ref://schema` - The official Data Contract JSON schema
+- `datacontract-ref://example` - A concrete example Data Contract from the retail domain
+
+## Included Data Contracts
+
+The repository includes example data contracts for:
+
+- `orders.datacontract.yaml` - Sample order data with CSV source
+- `video_history.datacontract.yaml` - Sample video watching history with CSV source
 
 ## Development
 
-To test the server locally:
+### Environment Variables
+
+- `DATACONTRACTS_SOURCE` - Directory containing Data Contract files (required)
+
+### Testing Locally
+
 ```bash
-mcp dev server.py
+DATACONTRACTS_SOURCE=<abs_repo_path>/datacontracts mcp dev -m datacontract_mcp.server
 ```
-
-## Features
-
-- Load and parse data contracts from URLs or local files
-- Execute semantic queries against contract definitions
-- Apply filters to query results
-- Error handling and validation
 
 ## License
 

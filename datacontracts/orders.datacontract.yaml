@@ -1,0 +1,77 @@
+dataContractSpecification: 1.1.0
+id: urn:datacontract:checkout:orders-latest
+info:
+  title: Orders Latest
+  version: 2.0.0
+  description: |
+    Successful customer orders in the webshop. All orders since 2020-01-01.
+    Orders with their line items are in their current state (no history included).
+  owner: Checkout Team
+  contact:
+    name: John Doe (Data Product Owner)
+    url: https://teams.microsoft.com/l/channel/example/checkout
+
+servers:
+  local:
+    type: local
+    environment: dev
+    path: orders.csv
+    format: csv
+    delimiter: comma
+    description: "Local CSV file for development and testing"
+
+terms:
+  usage: |
+    Data can be used for reports, analytics and machine learning use cases.
+    Order may be linked and joined by other tables
+  limitations: |
+    Not suitable for real-time use cases.
+    Data may not be used to identify individual customers.
+    Max data processing per day: 10 TiB
+
+models:
+  orders:
+    description: One record per order. Includes cancelled and deleted orders.
+    type: table
+    fields:
+      order_id:
+        type: text
+        description: Unique identifier for the order
+        required: true
+        unique: true
+        primaryKey: true
+      order_timestamp:
+        description: The business timestamp in UTC when the order was successfully registered
+        type: timestamp
+        required: true
+        examples:
+          - "2024-09-09T08:30:00Z"
+      order_total:
+        description: Total amount in the smallest monetary unit (e.g., cents)
+        type: long
+        required: true
+        examples:
+          - 9999
+      customer_id:
+        description: Unique identifier for the customer
+        type: text
+        minLength: 10
+        maxLength: 20
+      customer_email_address:
+        description: The email address, as entered by the customer
+        type: text
+        format: email
+        required: true
+        pii: true
+        classification: sensitive
+      processed_timestamp:
+        description: The timestamp when the record was processed
+        type: timestamp
+        required: true
+
+examples:
+  orders: |
+    order_id,order_timestamp,order_total,customer_id,customer_email_address,processed_timestamp
+    "1001","2024-09-09T08:30:00Z",2500,"1000000001","mary.taylor82@example.com","2024-09-09T08:31:00Z"
+    "1002","2024-09-08T15:45:00Z",1800,"1000000002","michael.miller83@example.com","2024-09-09T08:31:00Z"
+    "1003","2024-09-07T12:15:00Z",3200,"1000000003","michael.smith5@example.com","2024-09-09T08:31:00Z"

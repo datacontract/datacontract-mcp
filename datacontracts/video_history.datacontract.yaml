@@ -1,0 +1,148 @@
+dataContractSpecification: 1.1.0
+id: urn:datacontract:media:video-history-latest
+info:
+  title: Video History Latest
+  version: 1.0.0
+  description: |
+    User video watching history on YouTube. Contains all videos watched by users
+    since 2024-01-01. Records include video metadata and user interaction data.
+  owner: Media Analytics Team
+  contact:
+    name: Jane Smith (Data Product Owner)
+    url: https://teams.microsoft.com/l/channel/example/media-analytics
+    email: jane.smith@example.com
+
+servers:
+  local:
+    type: local
+    environment: dev
+    path: video_history.csv
+    format: csv
+    delimiter: comma
+    description: "Local CSV file for development and testing"
+
+terms:
+  usage: |
+    Data can be used for analytics, recommendation systems, and personalization algorithms.
+    Video history may be linked and joined with other user activity tables.
+  limitations: |
+    Not suitable for real-time use cases.
+    Personally identifiable information must be anonymized when used outside the Media Analytics Team.
+    Max data processing per day: 5 TiB
+
+models:
+  video_history:
+    description: One record per video watched by a user. Includes complete viewing sessions.
+    type: table
+    fields:
+      view_id:
+        type: text
+        description: Unique identifier for each viewing instance
+        required: true
+        unique: true
+        primaryKey: true
+      user_id:
+        description: Anonymized unique identifier for the user
+        type: text
+        required: true
+        minLength: 10
+        maxLength: 20
+        examples:
+          - "UA10002345"
+      video_id:
+        description: Unique identifier for the video
+        type: text
+        required: true
+        examples:
+          - "VID38291022"
+      timestamp_started:
+        description: The timestamp when the user started watching the video
+        type: timestamp
+        required: true
+        examples:
+          - "2024-04-15T14:32:10Z"
+      timestamp_ended:
+        description: The timestamp when the user finished or stopped watching the video
+        type: timestamp
+        required: true
+        examples:
+          - "2024-04-15T14:47:22Z"
+      duration_watched_seconds:
+        description: Total time in seconds that the user watched the video
+        type: int
+        required: true
+        examples:
+          - 915
+      video_duration_seconds:
+        description: Total duration of the video in seconds
+        type: int
+        required: true
+        examples:
+          - 1200
+      watch_percentage:
+        description: Percentage of the video watched (0-100)
+        type: float
+        required: true
+        minimum: 0
+        maximum: 100
+        examples:
+          - 76.25
+      channel_id:
+        description: Identifier for the channel that published the video
+        type: text
+        required: true
+        examples:
+          - "CH29481023"
+      video_category:
+        description: Category of the video content
+        type: text
+        examples:
+          - "Technology"
+          - "Education"
+          - "Entertainment"
+      video_tags:
+        description: Comma-separated list of tags associated with the video
+        type: text
+        examples:
+          - "programming,tutorial,python"
+      like_status:
+        description: Whether the user liked the video
+        type: boolean
+        examples:
+          - true
+          - false
+      comment_status:
+        description: Whether the user commented on the video
+        type: boolean
+        examples:
+          - true
+          - false
+      share_status:
+        description: Whether the user shared the video
+        type: boolean
+        examples:
+          - true
+          - false
+      device_type:
+        description: Type of device used to watch the video
+        type: text
+        examples:
+          - "mobile"
+          - "desktop"
+          - "tablet"
+          - "smart_tv"
+      processed_timestamp:
+        description: The timestamp when the record was processed
+        type: timestamp
+        required: true
+        examples:
+          - "2024-04-16T02:15:00Z"
+
+examples:
+  video_history: |
+    view_id,user_id,video_id,timestamp_started,timestamp_ended,duration_watched_seconds,video_duration_seconds,watch_percentage,channel_id,video_category,video_tags,like_status,comment_status,share_status,device_type,processed_timestamp
+    "VIEW1001","UA10000001","VID38291001","2024-04-15T14:30:00Z","2024-04-15T14:45:00Z",900,1200,75.00,"CH29481001","Technology","programming,tutorial,python",true,false,false,"desktop","2024-04-16T02:15:00Z"
+    "VIEW1002","UA10000001","VID38291002","2024-04-15T15:00:00Z","2024-04-15T15:12:30Z",750,900,83.33,"CH29481002","Education","math,calculus,education",false,false,false,"desktop","2024-04-16T02:15:00Z"
+    "VIEW1003","UA10000002","VID38291003","2024-04-15T16:20:00Z","2024-04-15T16:35:15Z",915,1800,50.83,"CH29481003","Entertainment","comedy,standup,humor",true,true,true,"mobile","2024-04-16T02:15:00Z"
+    "VIEW1004","UA10000002","VID38291004","2024-04-15T18:45:00Z","2024-04-15T19:02:30Z",1050,1200,87.50,"CH29481004","Technology","development,web,javascript",true,false,false,"tablet","2024-04-16T02:15:00Z"
+    "VIEW1005","UA10000003","VID38291005","2024-04-15T20:00:00Z","2024-04-15T20:28:45Z",1725,1800,95.83,"CH29481005","Entertainment","music,concert,live",true,false,true,"smart_tv","2024-04-16T02:15:00Z"
