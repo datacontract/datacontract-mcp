@@ -3,15 +3,15 @@ name = "datacontract-mcp"
 version = "0.0.1"
 description = "MCP server to work with Data Contracts"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "duckdb>=1.2.2",
     "mcp>=1.1.0",
-    "numpy>=2.2.5",
-    "pandas>=2.2.3",
-    "python-dotenv>=1.0.1",
-    "pyyaml>=6.0.2",
-    "requests>=2.32.3",
+    "numpy>=2.0.0",
+    "pandas>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+    "requests>=2.30.0",
 ]
 
 [build-system]

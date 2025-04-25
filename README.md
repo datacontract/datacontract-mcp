@@ -24,7 +24,14 @@ pip install -e .
 ## Running the Server
 
 ```bash
+# Set environment variable
+export DATACONTRACTS_SOURCE=/path/to/datacontracts/directory
+
+# Run server directly
 python -m datacontract_mcp.server
+
+# Or use MCP CLI for development
+mcp dev -m datacontract_mcp.server
 ```
 
 ## Adding to Claude Desktop (for local development)
@@ -36,7 +43,7 @@ Add this to your Claude Desktop configuration:
   "mcpServers": {
     "datacontract": {
       "command": "uv",
-      "args": ["run", "--directory", "<abs_repo_path>", "python", "-c", "from datacontract_mcp import main; main()"],
+      "args": ["run", "--directory", "<abs_repo_path>", "python", "-m", "datacontract_mcp.server"],
       "env": {
         "DATACONTRACTS_SOURCE": "<abs_repo_path>/datacontracts"
       }

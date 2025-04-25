@@ -1,128 +1,62 @@
 import logging
 
-from collections.abc import Sequence
 from dotenv import load_dotenv
-from mcp.server import Server
-from mcp.types import (
-    EmbeddedResource,
-    ImageContent,
-    Resource,
-    Tool,
-    TextContent,
-)
-from pydantic import AnyUrl
-from typing import Any
+from mcp.server import FastMCP
 
 load_dotenv()
 
-from . import tools
 from .resources import docs
-
-# Load environment variables
+from . import datacontract
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("datacontract-mcp")
 
-app = Server("datacontract-mcp")
+app = FastMCP("datacontract-mcp")
 
-# Define MCP server handlers
-@app.list_resources()
-async def handle_list_resources() -> list[Resource]:
-    """
-    List available Data Contract documentation resources.
-    """
-    logger.debug("Listing resources")
-    return [
-        Resource(
-            uri="datacontract-ref://schema",
-            name="Data Contract Schema",
-            description="The official Data Contract JSON schema",
-        ),
-        Resource(
-            uri="datacontract-ref://example",
-            name="Data Contract Example",
-            description="A concrete example of a Data Contract from the domain 'retail'",
-        ),
-    ]
+# MCP server resources
+@app.resource("datacontract-ref://schema")
+async def datacontract_schema() -> str:
+    """The official Data Contract JSON schema"""
+    logger.debug("Fetching schema")
+    return docs.get_datacontract_schema()
 
-@app.read_resource()
-async def handle_read_resource(uri: AnyUrl) -> str:
-    """
-    Read a specific Data Contract documentation resource.
+@app.resource("datacontract-ref://example")
+async def datacontract_example() -> str:
+    """A concrete example of a Data Contract from the domain 'retail'"""
+    logger.debug("Fetching example")
+    return docs.get_datacontract_example()
 
-    Args:
-        uri: Resource URI
+# MCP server tools
+@app.tool("datacontracts_get_schema")
+async def datacontracts_get_schema() -> str:
+    """Get the Data Contract schema."""
+    return docs.get_datacontract_schema()
 
-    Returns:
-        Resource content
+@app.tool("datacontracts_list_datacontracts")
+async def datacontracts_list_datacontracts() -> list[str]:
+    """Lists all available Data Contracts (by filename)."""
+    return datacontract.list_contract_files()
 
-    Raises:
-        ValueError: If the resource doesn't exist
-    """
-    logger.debug(f"Reading resource: {uri}")
+@app.tool("datacontracts_get_datacontract")
+async def datacontracts_get_datacontract(filename: str) -> str:
+    """Return the content of a single Data Contract."""
+    return datacontract.load_contract_file(filename)
 
-    if uri.scheme != "datacontract-ref":
-        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
-
-    path = uri.host
-
-    if path == "schema":
-        return docs.get_datacontract_schema()
-    elif path == "example":
-        return docs.get_datacontract_example()
-    else:
-        raise ValueError(f"Unknown resource: {path}")
-
-tool_handlers = {}
-def add_tool_handler(tool_class: tools.ToolHandler):
-    global tool_handlers
-
-    tool_handlers[tool_class.name] = tool_class
-
-def get_tool_handler(name: str) -> tools.ToolHandler | None:
-    if name not in tool_handlers:
-        return None
-
-    return tool_handlers[name]
-
-add_tool_handler(tools.GetDataContractSchema())
-add_tool_handler(tools.ListDataContracts())
-add_tool_handler(tools.GetDataContract())
-add_tool_handler(tools.QueryDataContract())
-
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    """List available tools."""
-
-    return [th.get_tool_description() for th in tool_handlers.values()]
-
-@app.call_tool()
-async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
-    """Handle tool calls for command line run."""
-
-    if not isinstance(arguments, dict):
-        raise RuntimeError("arguments must be dictionary")
-
-    tool_handler = get_tool_handler(name)
-    if not tool_handler:
-        raise ValueError(f"Unknown tool: {name}")
-
-    try:
-        return tool_handler.run_tool(arguments)
-    except Exception as e:
-        logger.error(str(e))
-        raise RuntimeError(f"Caught Exception. Error: {str(e)}")
+@app.tool("datacontracts_query_datacontract")
+async def datacontracts_query_datacontract(filename: str, query: str, server: str = None, model: str = None) -> list[dict]:
+    """Execute a ready-only query against source defined in a Data Contract YAML"""
+    return datacontract.execute_query(
+        filename=filename,
+        query=query,
+        server_key=server,
+        model_key=model
+    )
 
 
-async def main():
+def main():
+    """Entry point for CLI execution"""
+    app.run(transport="stdio")
 
-    # Import here to avoid issues with event loops
-    from mcp.server.stdio import stdio_server
-
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options()
-        )
+if __name__ == "__main__":
+    main()
