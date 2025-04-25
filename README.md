@@ -6,8 +6,10 @@ An MCP server for working with Data Contracts and Data Products - loading, valid
 
 ### Prerequisites
 
-- Python 3.13 or higher
+- Python 3.10 or higher (as specified in pyproject.toml)
 - [uv](https://astral.sh/uv) (recommended)
+
+See pyproject.toml for the full list of dependencies.
 
 ### Using uv (recommended)
 
