@@ -2,6 +2,7 @@ import logging
 
 from dotenv import load_dotenv
 from mcp.server import FastMCP
+from typing import Union, List, Dict, Any
 
 load_dotenv()
 
@@ -43,15 +44,39 @@ async def datacontracts_get_datacontract(filename: str) -> str:
     """Return the content of a single Data Contract."""
     return datacontract.load_contract_file(filename)
 
+
+@app.tool("datacontracts_validate")
+async def datacontracts_validate(filename: str) -> dict:
+    """Validate a data contract and return its structured representation"""
+    # Parse and validate the contract using Pydantic
+    contract = datacontract.get_contract(filename)
+    # Return the model as a dictionary
+    return contract.model_dump()
+
 @app.tool("datacontracts_query_datacontract")
-async def datacontracts_query_datacontract(filename: str, query: str, server: str = None, model: str = None) -> list[dict]:
-    """Execute a ready-only query against source defined in a Data Contract YAML"""
-    return datacontract.execute_query(
+async def datacontracts_query_datacontract(filename: str, query: str, server: str = None, model: str = None, include_metadata: bool = False) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+    """Execute a read-only query against source defined in a Data Contract YAML
+
+    Args:
+        filename: Name of the data contract file
+        query: SQL query to execute
+        server: Optional server key to use
+        model: Optional model key to use
+        include_metadata: Set to True to include metadata in response
+
+    Returns:
+        Just the query records by default, or full result with metadata if include_metadata=True
+    """
+    # Execute query with structured result
+    result = datacontract.query_contract(
         filename=filename,
         query=query,
         server_key=server,
         model_key=model
     )
+
+    # Return full model or just records based on parameter
+    return result.model_dump() if include_metadata else result.records
 
 
 def main():

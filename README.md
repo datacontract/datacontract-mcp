@@ -78,6 +78,14 @@ Retrieves the content of a specific Data Contract:
 datacontracts_get_datacontract(filename="orders.datacontract.yaml")
 ```
 
+### Validate Data Contract
+
+Validates a Data Contract and returns its structured representation:
+
+```
+datacontracts_validate(filename="orders.datacontract.yaml")
+```
+
 ### Query Data Contract
 
 Executes a read-only SQL query against data defined in a Data Contract:
@@ -86,6 +94,18 @@ Executes a read-only SQL query against data defined in a Data Contract:
 datacontracts_query_datacontract(
     filename="orders.datacontract.yaml",
     query="SELECT * FROM \"orders\" LIMIT 10"
+)
+```
+
+To include metadata (like server and model information) in the results, use the `include_metadata` parameter:
+
+```
+datacontracts_query_datacontract(
+    filename="orders.datacontract.yaml", 
+    query="SELECT * FROM \"orders\" LIMIT 10",
+    server="local",   # Optional server key
+    model="orders",   # Optional model key
+    include_metadata=True
 )
 ```
 

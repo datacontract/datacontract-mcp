@@ -1,4 +1,4 @@
-"""Data Contract core functionality."""
+"""Data Contract core functionality using Pydantic models."""
 
 import duckdb
 import logging
@@ -7,6 +7,11 @@ import yaml
 
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+from .models import (
+    DataContract, ServerType, ServerFormat,
+    QueryResult
+)
 
 logger = logging.getLogger("datacontract-mcp.datacontract")
 
@@ -37,6 +42,50 @@ def load_contract_file(filename: str) -> str:
         content = f.read()
 
     return content
+
+
+def parse_contract(content: str) -> DataContract:
+    """
+    Parse a data contract string into a validated DataContract object.
+
+    Args:
+        content: Data contract YAML content
+
+    Returns:
+        Validated DataContract object
+
+    Raises:
+        ValueError: If contract is invalid or parsing fails
+    """
+    try:
+        # First parse with PyYAML to get the raw dictionary
+        contract_dict = yaml.safe_load(content)
+
+        # Then validate with Pydantic
+        return DataContract.model_validate(contract_dict)
+
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing YAML: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error validating data contract: {str(e)}")
+
+
+def get_contract(filename: str) -> DataContract:
+    """
+    Load and parse a data contract file.
+
+    Args:
+        filename: Name of the data contract file
+
+    Returns:
+        Validated DataContract object
+
+    Raises:
+        FileNotFoundError: If the file is not found
+        ValueError: If contract is invalid or parsing fails
+    """
+    content = load_contract_file(filename)
+    return parse_contract(content)
 
 
 def list_contract_files() -> List[str]:
@@ -80,61 +129,38 @@ def execute_query(
     Raises:
         ValueError: If contract is invalid or query execution fails
     """
-    # Load and parse the contract file
-    content = load_contract_file(filename)
+    # Load and validate the contract using our Pydantic model
+    contract = get_contract(filename)
 
-    try:
-        data_contract = yaml.safe_load(content)
-    except Exception as e:
-        raise ValueError(f"Error parsing YAML: {str(e)}")
-
-    # Validate and extract server configuration
-    if 'servers' not in data_contract:
-        raise ValueError("Contract must have a 'servers' section")
-
-    servers = data_contract['servers']
-    if not isinstance(servers, dict) or len(servers) == 0:
-        raise ValueError("'servers' section must be a non-empty dictionary")
-
-    # Use provided server key or first available
-    server_key = server_key or next(iter(servers))
-    server = servers.get(server_key)
-    if not server:
+    # Determine server to use
+    server_key = server_key or next(iter(contract.servers))
+    if server_key not in contract.servers:
         raise ValueError(f"Server '{server_key}' not found in contract")
+    server = contract.servers[server_key]
 
-    # Get server configuration
-    server_type = server.get('type')
-    server_format = server.get('format')
-    if not server_type:
-        raise ValueError(f"Server '{server_key}' must specify a 'type'")
-    if not server_format:
-        raise ValueError(f"Server '{server_key}' must specify a 'format'")
-
-    # Validate and extract model configuration
-    if 'models' not in data_contract:
-        raise ValueError("Contract must have a 'models' section")
-
-    models = data_contract['models']
-    if not isinstance(models, dict) or len(models) == 0:
-        raise ValueError("'models' section must be a non-empty dictionary")
-
-    # Use provided model key or first available
-    model_key = model_key or next(iter(models))
-    model = models.get(model_key)
-    if not model:
+    # Determine model to use
+    model_key = model_key or next(iter(contract.models))
+    if model_key not in contract.models:
         raise ValueError(f"Model '{model_key}' not found in contract")
+    model = contract.models[model_key]
 
-    # Execute the query based on server type
-    if server_type in ['file', 'local']:
-        source = server.get('path')
-        if not source:
+    # Execute query based on server type
+    if server.type in [ServerType.LOCAL, ServerType.FILE]:
+        # For local/file servers, we need path and format
+        server_dict = server.model_dump()
+        path = server_dict.get('path')
+        format = server_dict.get('format')
+
+        if not path:
             raise ValueError(f"Server '{server_key}' must specify a 'path'")
+        if not format:
+            raise ValueError(f"Server '{server_key}' must specify a 'format'")
 
-        if server_format == 'csv':
+        if format == ServerFormat.CSV:
             # Full path to the data file
-            path = os.path.join(datacontracts_source, source)
-            if not os.path.exists(path):
-                raise FileNotFoundError(f"Data file {path} not found")
+            file_path = os.path.join(datacontracts_source, path)
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Data file {file_path} not found")
 
             # Create in-memory DuckDB connection and load the CSV
             conn = duckdb.connect(database=':memory:')
@@ -143,7 +169,7 @@ def execute_query(
             sql = f"""
             CREATE TABLE "{model_key}" AS
             SELECT * FROM read_csv(
-                '{path}', 
+                '{file_path}', 
                 auto_type_candidates=['BIGINT','VARCHAR','BOOLEAN','DOUBLE']
             );
             """
@@ -152,9 +178,54 @@ def execute_query(
             # Execute the query
             df = conn.execute(query).fetchdf()
 
-            # Convert to records
+            # Convert to records and return
             return df.to_dict(orient="records")
         else:
-            raise ValueError(f"Unsupported format '{server_format}' for {server_type} server")
+            raise ValueError(f"Unsupported format '{format}' for {server.type} server")
     else:
-        raise ValueError(f"Unsupported server type: {server_type}")
+        raise ValueError(f"Unsupported server type: {server.type}")
+
+
+def query_contract(
+    filename: str,
+    query: str,
+    server_key: Optional[str] = None,
+    model_key: Optional[str] = None
+) -> QueryResult:
+    """
+    Execute a query against a data contract and return structured results.
+
+    Args:
+        filename: Name of the data contract file
+        query: SQL query to execute
+        server_key: Optional key of the server to use
+        model_key: Optional key of the model to use
+
+    Returns:
+        QueryResult object with records and metadata
+
+    Raises:
+        ValueError: If contract is invalid or query execution fails
+    """
+    # Get contract to determine defaults if needed
+    contract = get_contract(filename)
+
+    # Use defaults if not specified
+    server_key = server_key or next(iter(contract.servers))
+    model_key = model_key or next(iter(contract.models))
+
+    # Execute query
+    records = execute_query(
+        filename=filename,
+        query=query,
+        server_key=server_key,
+        model_key=model_key
+    )
+
+    # Return structured result
+    return QueryResult(
+        records=records,
+        query=query,
+        model_key=model_key,
+        server_key=server_key
+    )
