@@ -8,7 +8,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-from .models import (
+from .models_datacontract import (
     DataContract, ServerType, ServerFormat,
     QueryResult
 )

@@ -24,6 +24,16 @@ def get_datacontract_schema() -> str:
     return _load_doc_resource("datacontract.schema.json")
 
 
+def get_dataproduct_schema() -> str:
+    """
+    Get Data Product schema.
+
+    Returns:
+        Documentation string
+    """
+    return _load_doc_resource("dataproduct.schema.json")
+
+
 def get_datacontract_example() -> str:
     """
     Get a concrete example of a Data Contract from the domain retail.
@@ -32,6 +42,16 @@ def get_datacontract_example() -> str:
         Documentation string
     """
     return _load_doc_resource("example.datacontract.yaml")
+
+
+def get_dataproduct_example() -> str:
+    """
+    Get a concrete example of a Data Product.
+
+    Returns:
+        Documentation string
+    """
+    return _load_doc_resource("example.dataproduct.yaml")
 
 
 def _load_doc_resource(filename: str) -> str:

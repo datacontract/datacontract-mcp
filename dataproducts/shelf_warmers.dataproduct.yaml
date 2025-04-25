@@ -1,0 +1,36 @@
+dataProductSpecification: 0.0.1
+id: "shelf_warmers"
+info:
+  title: "Shelf Warmers"
+  owner: "fulfillment"
+  description: "Shelf warmers are products that are not selling for 3 months and are taking up space on the shelf."
+  status: "active"
+  archetype: "source-aligned"
+  maturity: "managed"
+inputPorts:
+  - id: "stock-service"
+    name: "Stock Service"
+    sourceSystemId: "stock-service"
+    type: "Kafka Topic"
+    location: "fulfillment.stock.events.v1"
+outputPorts:
+  - id: "shelf_warmers_v1_sql"
+    name: "shelf_warmers_v1_sql"
+    description: "All articles that are not selling for 3 months and are taking up space on the shelf."
+    type: "SQL"
+    location: "fulfillment.shelf_warmers_v1"
+    links:
+      catalog: "https://datacatalog.example.com/fulfillment/shelf_warmers/shelf_warmers_v1"
+      jdbc_endpoint: "jdbc:awsathena://AWSRegion=..."
+    containsPii: false
+    tags:
+      - "AWS"
+  - id: "shelf_warmers_v1_s3"
+    name: "shelf_warmers_v1_s3"
+    description: "All articles that are not selling for 3 months and are taking up space on the shelf. Provided as parquet files on s3."
+    type: "S3"
+    status: "active"
+links:
+  repository: "https://git.example.com/fulfillment/dataproducts/shelf_warmers"
+  dataCatalog: "https://datacatalog.example.com/fulfillment/shelf_warmers"
+tags: ["AWS", "S3", "Athena"]
