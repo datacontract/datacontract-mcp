@@ -1,17 +1,16 @@
 """Data Contract core functionality using Pydantic models."""
 
-import duckdb
 import logging
 import os
 import yaml
-
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-from .models_datacontract import (
-    DataContract, ServerType, ServerFormat,
-    QueryResult
-)
+# Import models
+from .models_datacontract import DataContract, QueryResult
+
+# Import query module
+from .query import get_query_strategy
 
 logger = logging.getLogger("datacontract-mcp.datacontract")
 
@@ -142,48 +141,14 @@ def execute_query(
     model_key = model_key or next(iter(contract.models))
     if model_key not in contract.models:
         raise ValueError(f"Model '{model_key}' not found in contract")
-    model = contract.models[model_key]
 
-    # Execute query based on server type
-    if server.type in [ServerType.LOCAL, ServerType.FILE]:
-        # For local/file servers, we need path and format
-        server_dict = server.model_dump()
-        path = server_dict.get('path')
-        format = server_dict.get('format')
-
-        if not path:
-            raise ValueError(f"Server '{server_key}' must specify a 'path'")
-        if not format:
-            raise ValueError(f"Server '{server_key}' must specify a 'format'")
-
-        if format == ServerFormat.CSV:
-            # Full path to the data file
-            file_path = os.path.join(datacontracts_source, path)
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Data file {file_path} not found")
-
-            # Create in-memory DuckDB connection and load the CSV
-            conn = duckdb.connect(database=':memory:')
-
-            # Create a table for the model
-            sql = f"""
-            CREATE TABLE "{model_key}" AS
-            SELECT * FROM read_csv(
-                '{file_path}', 
-                auto_type_candidates=['BIGINT','VARCHAR','BOOLEAN','DOUBLE']
-            );
-            """
-            conn.execute(sql)
-
-            # Execute the query
-            df = conn.execute(query).fetchdf()
-
-            # Convert to records and return
-            return df.to_dict(orient="records")
-        else:
-            raise ValueError(f"Unsupported format '{format}' for {server.type} server")
-    else:
-        raise ValueError(f"Unsupported server type: {server.type}")
+    try:
+        # Get the appropriate query strategy and execute
+        strategy = get_query_strategy(server.type)
+        return strategy.execute(model_key, query, server.model_dump())
+    except Exception as e:
+        logger.error(f"Error executing query: {str(e)}")
+        raise ValueError(f"Error executing query: {str(e)}")
 
 
 def query_contract(

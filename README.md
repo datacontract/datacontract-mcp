@@ -185,8 +185,31 @@ The repository includes example data products for:
 
 ### Environment Variables
 
+#### Required Environment Variables
 - `DATACONTRACTS_SOURCE` - Directory containing Data Contract files (required)
 - `DATAPRODUCTS_SOURCE` - Directory containing Data Product files (required)
+
+#### AWS S3 Configuration Variables
+For accessing data from AWS S3 or S3-compatible storage, the following environment variables can be used:
+
+- `AWS_REGION` or `AWS_DEFAULT_REGION` - AWS region to use (default: `us-east-1`)
+- `S3_BUCKETS` - Comma-separated list of allowed S3 buckets (if not set, all buckets are allowed)
+- `S3_MAX_BUCKETS` - Maximum number of allowed buckets (default: `10`)
+
+#### AWS S3 Authentication Variables
+For authentication with AWS S3, you can use one of the following methods:
+
+1. **AWS Profile** (recommended for local development):
+   - `AWS_PROFILE` or `S3_PROFILE` - AWS credential profile to use
+
+2. **Explicit Credentials**:
+   - `AWS_ACCESS_KEY_ID` or `S3_ACCESS_KEY_ID` - AWS access key ID
+   - `AWS_SECRET_ACCESS_KEY` or `S3_SECRET_ACCESS_KEY` - AWS secret access key
+   - `AWS_SESSION_TOKEN` or `S3_SESSION_TOKEN` - AWS session token (for temporary credentials)
+
+3. **Default Credential Chain**:
+   If no explicit credentials are provided, boto3's default credential chain is used,
+   which checks environment variables, ~/.aws/credentials, IAM roles, etc.
 
 ### Testing Locally
 

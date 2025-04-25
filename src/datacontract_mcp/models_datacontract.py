@@ -113,6 +113,40 @@ class LocalServer(BaseServer):
         return v
 
 
+class S3Server(BaseServer):
+    """AWS S3 server configuration."""
+    type: Literal[ServerType.S3]
+    location: str  # S3 URL starting with 's3://'
+    format: Optional[ServerFormat] = None
+    delimiter: Optional[str] = None
+    endpointUrl: Optional[str] = None
+    
+    @field_validator("location")
+    @classmethod
+    def validate_location(cls, v):
+        """Validate that location is a valid S3 URL."""
+        if not v.startswith("s3://"):
+            raise ValueError("S3 location must start with 's3://'")
+        return v
+        
+    @field_validator("format")
+    @classmethod
+    def validate_format(cls, v):
+        """Validate that format is valid for S3 server if provided."""
+        if v is not None and v not in [ServerFormat.CSV, ServerFormat.JSON, ServerFormat.PARQUET, ServerFormat.DELTA]:
+            raise ValueError(f"Format {v} not supported for S3 server")
+        return v
+        
+    @field_validator("delimiter")
+    @classmethod
+    def validate_delimiter(cls, v, info):
+        """Validate that delimiter is only used with JSON format."""
+        values = info.data
+        if v is not None and values.get("format") != ServerFormat.JSON:
+            raise ValueError("Delimiter is only supported for JSON format")
+        return v
+
+
 class Field(BaseModel):
     """Field definition in a data contract model."""
     model_config = ConfigDict(extra="allow")
@@ -177,6 +211,11 @@ class DataContract(BaseModel):
                     raise ValueError(f"Server '{key}' of type {server.type} must have a 'path'")
                 if not hasattr(server, 'format') or not server.format:
                     raise ValueError(f"Server '{key}' of type {server.type} must have a 'format'")
+            
+            # For S3 servers, ensure they have location
+            elif server.type == ServerType.S3:
+                if not hasattr(server, 'location') or not server.location:
+                    raise ValueError(f"Server '{key}' of type {server.type} must have a 'location'")
 
         return self
 
