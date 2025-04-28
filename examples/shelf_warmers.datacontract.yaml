@@ -1,0 +1,102 @@
+dataContractSpecification: 1.1.0
+id: urn:datacontract:fulfillment:shelf-warmers-latest
+info:
+  title: Shelf Warmers Latest
+  version: 1.0.0
+  description: |
+    Products that are not selling for 3 months and are taking up space on the shelf.
+    This data helps inventory management and fulfillment teams identify slow-moving items.
+  owner: Fulfillment Team
+  contact:
+    name: Fulfillment Team Lead
+    url: https://teams.microsoft.com/l/channel/example/fulfillment
+
+servers:
+  sql:
+    type: s3
+    environment: prod
+    format: parquet
+    location: s3://fulfillment/shelf_warmers_v1
+    description: "S3 bucket with parquet files containing shelf warmer data"
+  local:
+    type: local
+    environment: dev
+    path: shelf_warmers.csv
+    format: csv
+    delimiter: comma
+    description: "Local CSV file for development and testing"
+
+terms:
+  usage: |
+    Data can be used for inventory optimization, space management, 
+    and discount planning for products that haven't sold in 3+ months.
+  limitations: |
+    Not suitable for real-time use cases.
+    Data is refreshed daily and may not reflect very recent inventory changes.
+    Max data processing per day: 2 TiB
+
+models:
+  shelf_warmers:
+    description: One record per product that hasn't sold for at least 3 months.
+    type: table
+    fields:
+      product_id:
+        type: text
+        description: Unique identifier for the product
+        required: true
+        unique: true
+        primaryKey: true
+      product_name:
+        type: text
+        description: Name of the product
+        required: true
+      category:
+        type: text
+        description: Product category
+        required: true
+      subcategory:
+        type: text
+        description: Product subcategory
+      last_sold_date:
+        type: date
+        description: Date when the product was last sold
+        required: true
+      days_on_shelf:
+        type: int
+        description: Number of days the product has been on the shelf without selling
+        required: true
+      current_quantity:
+        type: int
+        description: Current inventory quantity
+        required: true
+      location_id:
+        type: text
+        description: Identifier for the product's current storage location
+        required: true
+      shelf_space_sqm:
+        type: float
+        description: Amount of shelf space taken up by the product in square meters
+      suggested_action:
+        type: text
+        description: Suggested action to take for this product (discount, return, relocate)
+        enum:
+          - "discount"
+          - "return"
+          - "relocate"
+          - "review"
+      suggested_discount:
+        type: float
+        description: Suggested discount percentage if action is 'discount'
+        minimum: 0
+        maximum: 100
+      processed_timestamp:
+        type: timestamp
+        description: The timestamp when the record was processed
+        required: true
+
+examples:
+  shelf_warmers: |
+    product_id,product_name,category,subcategory,last_sold_date,days_on_shelf,current_quantity,location_id,shelf_space_sqm,suggested_action,suggested_discount,processed_timestamp
+    "P1001","Wool Winter Hat XL","Apparel","Winter Accessories","2024-01-05",110,15,"W23-A5",0.25,"discount",30.0,"2024-04-25T02:30:00Z"
+    "P1002","Specialty Coffee Maker","Kitchen","Appliances","2024-01-12",103,3,"E14-B2",0.5,"relocate",null,"2024-04-25T02:30:00Z"
+    "P1003","Ceramic Planter Set","Home","Decor","2024-01-15",100,8,"S05-C7",0.4,"discount",25.0,"2024-04-25T02:30:00Z"

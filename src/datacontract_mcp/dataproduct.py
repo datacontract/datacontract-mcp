@@ -1,19 +1,17 @@
 """Data Product core functionality using Pydantic models."""
 
 import logging
-import os
-import yaml
-
-from pathlib import Path
 from typing import List
 
 from .models_dataproduct import DataProduct
 
-logger = logging.getLogger("datacontract-mcp.dataproduct")
+from .asset_utils import (
+    load_asset_file,
+    parse_yaml_with_model,
+    list_files_with_extension
+)
 
-dataproducts_source = os.getenv("DATAPRODUCTS_SOURCE", "")
-if dataproducts_source == "":
-    raise ValueError(f"DATAPRODUCTS_SOURCE environment variable required. Working directory: {os.getcwd()}")
+logger = logging.getLogger("datacontract-mcp.dataproduct")
 
 
 def load_product_file(filename: str) -> str:
@@ -27,17 +25,9 @@ def load_product_file(filename: str) -> str:
         File contents as string
 
     Raises:
-        FileNotFoundError: If the file is not found
+        AssetLoadError: If the file is not found
     """
-    resource_path = Path(f"{dataproducts_source}/{filename}")
-
-    if not resource_path.exists():
-        raise FileNotFoundError(f"Data product file {filename} not found at {resource_path}")
-
-    with open(resource_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    return content
+    return load_asset_file(filename)
 
 
 def parse_product(content: str) -> DataProduct:
@@ -51,19 +41,9 @@ def parse_product(content: str) -> DataProduct:
         Validated DataProduct object
 
     Raises:
-        ValueError: If product is invalid or parsing fails
+        AssetParseError: If product is invalid or parsing fails
     """
-    try:
-        # First parse with PyYAML to get the raw dictionary
-        product_dict = yaml.safe_load(content)
-
-        # Then validate with Pydantic
-        return DataProduct.model_validate(product_dict)
-
-    except yaml.YAMLError as e:
-        raise ValueError(f"Error parsing YAML: {str(e)}")
-    except Exception as e:
-        raise ValueError(f"Error validating data product: {str(e)}")
+    return parse_yaml_with_model(content, DataProduct)
 
 
 def get_product(filename: str) -> DataProduct:
@@ -77,8 +57,8 @@ def get_product(filename: str) -> DataProduct:
         Validated DataProduct object
 
     Raises:
-        FileNotFoundError: If the file is not found
-        ValueError: If product is invalid or parsing fails
+        AssetLoadError: If the file is not found
+        AssetParseError: If product is invalid or parsing fails
     """
     content = load_product_file(filename)
     return parse_product(content)
@@ -91,14 +71,4 @@ def list_product_files() -> List[str]:
     Returns:
         List of filenames
     """
-    files = []
-    if not os.path.exists(dataproducts_source):
-        logger.warning(f"Data products directory {dataproducts_source} does not exist")
-        return files
-
-    for fname in os.listdir(dataproducts_source):
-        file_path = os.path.join(dataproducts_source, fname)
-        if os.path.isfile(file_path) and fname.lower().endswith('.yaml'):
-            files.append(fname)
-
-    return files
+    return list_files_with_extension('.dataproduct.yaml')

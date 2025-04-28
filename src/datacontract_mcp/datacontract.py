@@ -1,22 +1,19 @@
 """Data Contract core functionality using Pydantic models."""
 
 import logging
-import os
-import yaml
-from pathlib import Path
+
 from typing import Dict, List, Optional, Any
-
-# Import models
 from .models_datacontract import DataContract, QueryResult
-
-# Import query module
 from .query import get_query_strategy
 
-logger = logging.getLogger("datacontract-mcp.datacontract")
+from .asset_utils import (
+    load_asset_file,
+    parse_yaml_with_model,
+    list_files_with_extension,
+    AssetQueryError,
+)
 
-datacontracts_source = os.getenv("DATACONTRACTS_SOURCE", "")
-if datacontracts_source == "":
-    raise ValueError(f"DATACONTRACTS_SOURCE environment variable required. Working directory: {os.getcwd()}")
+logger = logging.getLogger("datacontract-mcp.datacontract")
 
 
 def load_contract_file(filename: str) -> str:
@@ -30,17 +27,9 @@ def load_contract_file(filename: str) -> str:
         File contents as string
 
     Raises:
-        FileNotFoundError: If the file is not found
+        AssetLoadError: If the file is not found
     """
-    resource_path = Path(f"{datacontracts_source}/{filename}")
-
-    if not resource_path.exists():
-        raise FileNotFoundError(f"Data contract file {filename} not found at {resource_path}")
-
-    with open(resource_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    return content
+    return load_asset_file(filename)
 
 
 def parse_contract(content: str) -> DataContract:
@@ -54,19 +43,9 @@ def parse_contract(content: str) -> DataContract:
         Validated DataContract object
 
     Raises:
-        ValueError: If contract is invalid or parsing fails
+        AssetParseError: If contract is invalid or parsing fails
     """
-    try:
-        # First parse with PyYAML to get the raw dictionary
-        contract_dict = yaml.safe_load(content)
-
-        # Then validate with Pydantic
-        return DataContract.model_validate(contract_dict)
-
-    except yaml.YAMLError as e:
-        raise ValueError(f"Error parsing YAML: {str(e)}")
-    except Exception as e:
-        raise ValueError(f"Error validating data contract: {str(e)}")
+    return parse_yaml_with_model(content, DataContract)
 
 
 def get_contract(filename: str) -> DataContract:
@@ -80,8 +59,8 @@ def get_contract(filename: str) -> DataContract:
         Validated DataContract object
 
     Raises:
-        FileNotFoundError: If the file is not found
-        ValueError: If contract is invalid or parsing fails
+        AssetLoadError: If the file is not found
+        AssetParseError: If contract is invalid or parsing fails
     """
     content = load_contract_file(filename)
     return parse_contract(content)
@@ -94,17 +73,7 @@ def list_contract_files() -> List[str]:
     Returns:
         List of filenames
     """
-    files = []
-    if not os.path.exists(datacontracts_source):
-        logger.warning(f"Data contracts directory {datacontracts_source} does not exist")
-        return files
-
-    for fname in os.listdir(datacontracts_source):
-        file_path = os.path.join(datacontracts_source, fname)
-        if os.path.isfile(file_path) and fname.lower().endswith('.yaml'):
-            files.append(fname)
-
-    return files
+    return list_files_with_extension('.datacontract.yaml')
 
 
 def execute_query(
@@ -126,7 +95,9 @@ def execute_query(
         List of query result records
 
     Raises:
-        ValueError: If contract is invalid or query execution fails
+        AssetLoadError: If the file is not found
+        AssetParseError: If contract is invalid
+        AssetQueryError: If query execution fails
     """
     # Load and validate the contract using our Pydantic model
     contract = get_contract(filename)
@@ -134,13 +105,13 @@ def execute_query(
     # Determine server to use
     server_key = server_key or next(iter(contract.servers))
     if server_key not in contract.servers:
-        raise ValueError(f"Server '{server_key}' not found in contract")
+        raise AssetQueryError(f"Server '{server_key}' not found in contract")
     server = contract.servers[server_key]
 
     # Determine model to use
     model_key = model_key or next(iter(contract.models))
     if model_key not in contract.models:
-        raise ValueError(f"Model '{model_key}' not found in contract")
+        raise AssetQueryError(f"Model '{model_key}' not found in contract")
 
     try:
         # Get the appropriate query strategy and execute
@@ -148,7 +119,7 @@ def execute_query(
         return strategy.execute(model_key, query, server.model_dump())
     except Exception as e:
         logger.error(f"Error executing query: {str(e)}")
-        raise ValueError(f"Error executing query: {str(e)}")
+        raise AssetQueryError(f"Error executing query: {str(e)}")
 
 
 def query_contract(
@@ -170,7 +141,9 @@ def query_contract(
         QueryResult object with records and metadata
 
     Raises:
-        ValueError: If contract is invalid or query execution fails
+        AssetLoadError: If the file is not found
+        AssetParseError: If contract is invalid
+        AssetQueryError: If query execution fails
     """
     # Get contract to determine defaults if needed
     contract = get_contract(filename)

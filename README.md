@@ -1,45 +1,54 @@
-# DataContract/DataProduct MCP Server
+# DataProduct MCP Server
 
-An MCP server for working with Data Contracts and Data Products - loading, validating, querying, and analyzing definitions.
+A server that helps you work with Data Products - making it easy to load, validate, query, and analyze your data assets, including their linked data contracts.
+
+## What It Does
+
+This MCP server provides a simple interface for working with Data Products:
+
+- Loads and validates data products
+- Analyzes linked data contracts within data products
+- Provides tools to query and analyze your data
+- Recognizes files automatically by their extensions (`.dataproduct.yaml` and `.datacontract.yaml`)
+- Handles data assets in a consistent way
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.10 or higher (as specified in pyproject.toml)
-- [uv](https://astral.sh/uv) (recommended)
+- Python 3.10 or higher
+- [uv](https://astral.sh/uv) (recommended) or pip
 
-See pyproject.toml for the full list of dependencies.
+### Quick Install
 
-### Using uv (recommended)
-
+With uv (recommended):
 ```bash
 uv pip install -e .
 ```
 
-### Using pip
-
+With pip:
 ```bash
 pip install -e .
 ```
 
 ## Running the Server
 
-```bash
-# Set environment variables
-export DATACONTRACTS_SOURCE=/path/to/datacontracts/directory
-export DATAPRODUCTS_SOURCE=/path/to/dataproducts/directory
+Set up where your data files are stored:
 
-# Run server directly
+```bash
+# Point to your data files
+export DATAASSET_SOURCE=/path/to/assets/directory
+
+# Run the server
 python -m datacontract_mcp.server
 
-# Or use MCP CLI for development
+# For development with MCP CLI
 mcp dev -m datacontract_mcp.server
 ```
 
-## Adding to Claude Desktop (for local development)
+## Using with Claude Desktop
 
-Add this to your Claude Desktop configuration:
+Add this configuration for local development:
 
 ```json
 {
@@ -48,8 +57,7 @@ Add this to your Claude Desktop configuration:
       "command": "uv",
       "args": ["run", "--directory", "<abs_repo_path>", "python", "-m", "datacontract_mcp.server"],
       "env": {
-        "DATACONTRACTS_SOURCE": "<abs_repo_path>/datacontracts",
-        "DATAPRODUCTS_SOURCE": "<abs_repo_path>/dataproducts"
+        "DATAASSET_SOURCE": "<abs_repo_path>/dataassets"
       }
     }
   }
@@ -58,163 +66,121 @@ Add this to your Claude Desktop configuration:
 
 ## Available Tools
 
-### Data Contract Tools
-
-### Get Data Contract Schema
-
-Retrieves the official Data Contract JSON schema:
-
-```
-datacontracts_get_schema
-```
-
-### List Data Contracts
-
-Lists all available Data Contracts in the datacontracts directory:
-
-```
-datacontracts_list_datacontracts
-```
-
-### Get Data Contract
-
-Retrieves the content of a specific Data Contract:
-
-```
-datacontracts_get_datacontract(filename="orders.datacontract.yaml")
-```
-
-### Validate Data Contract
-
-Validates a Data Contract and returns its structured representation:
-
-```
-datacontracts_validate(filename="orders.datacontract.yaml")
-```
-
-### Query Data Contract
-
-Executes a read-only SQL query against data defined in a Data Contract:
-
-```
-datacontracts_query_datacontract(
-    filename="orders.datacontract.yaml",
-    query="SELECT * FROM \"orders\" LIMIT 10"
-)
-```
-
-To include metadata (like server and model information) in the results, use the `include_metadata` parameter:
-
-```
-datacontracts_query_datacontract(
-    filename="orders.datacontract.yaml", 
-    query="SELECT * FROM \"orders\" LIMIT 10",
-    server="local",   # Optional server key
-    model="orders",   # Optional model key
-    include_metadata=True
-)
-```
-
 ### Data Product Tools
 
-### Get Data Product Schema
+#### List Data Products
 
-Retrieves the official Data Product JSON schema:
-
-```
-dataproducts_get_schema
-```
-
-### Get Data Product Example
-
-Retrieves an example Data Product:
+See all available Data Products:
 
 ```
-dataproducts_get_example
+dataproducts_list
 ```
 
-### List Data Products
+#### Get Data Product
 
-Lists all available Data Products in the dataproducts directory:
-
-```
-dataproducts_list_dataproducts
-```
-
-### Get Data Product
-
-Retrieves the content of a specific Data Product:
+Get a specific Data Product:
 
 ```
-dataproducts_get_dataproduct(filename="shelf_warmers.dataproduct.yaml")
+dataproducts_get(filename="shelf_warmers.dataproduct.yaml")
 ```
 
-### Validate Data Product
+#### Validate Data Product
 
-Validates a Data Product and returns its structured representation:
+Check if a Data Product is valid:
 
 ```
 dataproducts_validate(filename="shelf_warmers.dataproduct.yaml")
 ```
 
-## Available Resources
+#### Get Data Product Outputs
 
-The server provides access to these resources:
+Get all output ports from a Data Product, along with their linked contracts:
 
-- `datacontract-ref://schema` - The official Data Contract JSON schema
-- `datacontract-ref://example` - A concrete example Data Contract from the retail domain
-- `dataproduct-ref://schema` - The official Data Product JSON schema
-- `dataproduct-ref://example` - A concrete example Data Product
+```
+dataproducts_get_outputs(filename="shelf_warmers.dataproduct.yaml")
+```
+
+#### Get Output Schema
+
+Get the schema for a specific output port using its linked data contract:
+
+```
+dataproducts_get_output_schema(
+    filename="shelf_warmers.dataproduct.yaml",
+    port_id="shelf_warmers"
+)
+```
+
+#### Query Data Product
+
+Query data from a Data Product's output port:
+
+```
+dataproducts_query(
+    filename="shelf_warmers.dataproduct.yaml",
+    query="SELECT * FROM \"shelf_warmers\" LIMIT 10"
+)
+```
+
+With additional options:
+
+```
+dataproducts_query(
+    filename="shelf_warmers.dataproduct.yaml", 
+    query="SELECT * FROM \"shelf_warmers\" LIMIT 10",
+    port_id="shelf_warmers",   # Optional output port ID
+    server="local",            # Optional server key
+    model="shelf_warmers",     # Optional model key
+    include_metadata=True
+)
+```
 
 ## Included Examples
 
-### Data Contracts
-
-The repository includes example data contracts for:
-
-- `orders.datacontract.yaml` - Sample order data with CSV source
-- `video_history.datacontract.yaml` - Sample video watching history with CSV source
+The `examples` directory contains sample files for both data products and their supporting data contracts:
 
 ### Data Products
 
-The repository includes example data products for:
+- `examples/shelf_warmers.dataproduct.yaml` - Shows which products haven't sold in 3 months
+- `examples/orders.dataproduct.yaml` - Order data with order details
+- `examples/video_history.dataproduct.yaml` - Video watching history
 
-- `shelf_warmers.dataproduct.yaml` - Sample data product for products not selling for 3 months
+### Supporting Data Contracts
 
-## Development
+- `examples/shelf_warmers.datacontract.yaml` - Contract for shelf warmers data
+- `examples/orders.datacontract.yaml` - Sample order data contract (CSV format)
+- `examples/video_history.datacontract.yaml` - Video history data contract (CSV format)
+
+## Available Resources
+
+Access these built-in resources:
+
+- `dataproduct-ref://schema` - The official Data Product JSON schema
+- `dataproduct-ref://example` - A sample Data Product
+
+## Configuration
 
 ### Environment Variables
 
-#### Required Environment Variables
-- `DATACONTRACTS_SOURCE` - Directory containing Data Contract files (required)
-- `DATAPRODUCTS_SOURCE` - Directory containing Data Product files (required)
+- `DATAASSET_SOURCE` - Where to find your data assets (both products and contracts)
 
-#### AWS S3 Configuration Variables
-For accessing data from AWS S3 or S3-compatible storage, the following environment variables can be used:
+### AWS S3 Configuration
 
-- `AWS_REGION` or `AWS_DEFAULT_REGION` - AWS region to use (default: `us-east-1`)
-- `S3_BUCKETS` - Comma-separated list of allowed S3 buckets (if not set, all buckets are allowed)
-- `S3_MAX_BUCKETS` - Maximum number of allowed buckets (default: `10`)
+To access data from S3:
 
-#### AWS S3 Authentication Variables
-For authentication with AWS S3, you can use one of the following methods:
+- `AWS_REGION` or `AWS_DEFAULT_REGION` - AWS region (default: `us-east-1`)
+- `S3_BUCKETS` - List of allowed S3 buckets (comma-separated)
+- `S3_MAX_BUCKETS` - Maximum number of buckets (default: 10)
 
-1. **AWS Profile** (recommended for local development):
-   - `AWS_PROFILE` or `S3_PROFILE` - AWS credential profile to use
-
-2. **Explicit Credentials**:
-   - `AWS_ACCESS_KEY_ID` or `S3_ACCESS_KEY_ID` - AWS access key ID
-   - `AWS_SECRET_ACCESS_KEY` or `S3_SECRET_ACCESS_KEY` - AWS secret access key
-   - `AWS_SESSION_TOKEN` or `S3_SESSION_TOKEN` - AWS session token (for temporary credentials)
-
-3. **Default Credential Chain**:
-   If no explicit credentials are provided, boto3's default credential chain is used,
-   which checks environment variables, ~/.aws/credentials, IAM roles, etc.
+Authentication options:
+1. AWS Profile (for development): `AWS_PROFILE` or `S3_PROFILE`
+2. Direct credentials: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
+3. Default chain (environment variables, ~/.aws/credentials, IAM roles)
 
 ### Testing Locally
 
 ```bash
-DATACONTRACTS_SOURCE=<abs_repo_path>/datacontracts DATAPRODUCTS_SOURCE=<abs_repo_path>/dataproducts mcp dev -m datacontract_mcp.server
+DATAASSET_SOURCE=<abs_repo_path>/dataassets mcp dev -m datacontract_mcp.server
 ```
 
 ## License

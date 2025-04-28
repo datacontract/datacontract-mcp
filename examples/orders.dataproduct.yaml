@@ -1,0 +1,36 @@
+dataProductSpecification: 0.0.1
+id: "orders"
+info:
+  title: "Orders"
+  owner: "Checkout Team"
+  description: "Data product for successful customer orders in the webshop."
+  status: "active"
+  archetype: "source-aligned"
+  domain: "checkout"
+inputPorts:
+  - id: "checkout-service"
+    name: "Checkout Service"
+    sourceSystemId: "checkout-service"
+    type: "WebService"
+    description: "Service that processes customer orders in the webshop"
+outputPorts:
+  - id: "orders_latest_v1"
+    name: "Orders Latest"
+    description: "Successful customer orders in the webshop. All orders since 2020-01-01."
+    type: "local"
+    status: "active"
+    server:
+      location: "orders.csv"
+      format: "csv"
+      delimiter: "comma"
+    links:
+      dataContract: "urn:datacontract:checkout:orders-latest"
+    containsPii: true
+    dataContractId: "urn:datacontract:checkout:orders-latest"
+    tags:
+      - "orders"
+      - "checkout"
+links:
+  dataContract: "urn:datacontract:checkout:orders-latest"
+  documentation: "https://teams.microsoft.com/l/channel/example/checkout"
+tags: ["orders", "checkout", "core-data"]

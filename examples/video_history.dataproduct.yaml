@@ -1,0 +1,38 @@
+dataProductSpecification: 0.0.1
+id: "video_history"
+info:
+  title: "Video History"
+  owner: "Media Analytics Team"
+  description: "Data product for user video watching history on YouTube."
+  status: "active"
+  archetype: "source-aligned"
+  domain: "media"
+inputPorts:
+  - id: "media-analytics-service"
+    name: "Media Analytics Service"
+    sourceSystemId: "youtube-analytics-api"
+    type: "API"
+    description: "Service that tracks user video viewing activity on YouTube"
+outputPorts:
+  - id: "video_history_latest_v1"
+    name: "Video History Latest"
+    description: "User video watching history on YouTube. Contains all videos watched by users since 2024-01-01."
+    type: "local"
+    status: "active"
+    server:
+      location: "video_history.csv"
+      format: "csv"
+      delimiter: "comma"
+    links:
+      dataContract: "urn:datacontract:media:video-history-latest"
+    containsPii: false
+    dataContractId: "urn:datacontract:media:video-history-latest"
+    tags:
+      - "video"
+      - "media"
+      - "analytics"
+links:
+  dataContract: "urn:datacontract:media:video-history-latest"
+  documentation: "https://teams.microsoft.com/l/channel/example/media-analytics"
+  contact: "jane.smith@example.com"
+tags: ["video", "media", "analytics", "recommendations"]

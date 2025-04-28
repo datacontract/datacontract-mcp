@@ -4,12 +4,10 @@ from typing import TYPE_CHECKING
 from ..models_datacontract import ServerType
 
 if TYPE_CHECKING:
-    from .base import QueryStrategy
-    from .local import LocalFileStrategy
-    from .s3 import S3Strategy
+    from .base import DataQueryStrategy
 
 
-def get_query_strategy(server_type: ServerType) -> "QueryStrategy":
+def get_query_strategy(server_type: ServerType) -> "DataQueryStrategy":
     """Factory function to get the appropriate query strategy for a server type.
     
     Args:
@@ -21,13 +19,13 @@ def get_query_strategy(server_type: ServerType) -> "QueryStrategy":
     Raises:
         ValueError: If the server type is not supported
     """
-    from .local import LocalFileStrategy
-    from .s3 import S3Strategy
+    from .local import LocalFileQueryStrategy
+    from .s3 import S3QueryStrategy
     
     strategies = {
-        ServerType.LOCAL: LocalFileStrategy(),
-        ServerType.FILE: LocalFileStrategy(),
-        ServerType.S3: S3Strategy(),
+        ServerType.LOCAL: LocalFileQueryStrategy(),
+        ServerType.FILE: LocalFileQueryStrategy(),
+        ServerType.S3: S3QueryStrategy(),
         # Add other server types as needed
     }
     

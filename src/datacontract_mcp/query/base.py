@@ -18,8 +18,8 @@ def create_duckdb_connection() -> Iterator[duckdb.DuckDBPyConnection]:
         conn.close()
 
 
-class QueryStrategy(ABC):
-    """Base strategy for querying different server types and formats."""
+class DataQueryStrategy(ABC):
+    """Base strategy for querying different data asset server types and formats."""
     
     @abstractmethod
     def execute(self, model_key: str, query: str, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:

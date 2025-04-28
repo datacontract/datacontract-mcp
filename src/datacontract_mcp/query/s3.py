@@ -40,9 +40,9 @@ import logging
 import os
 import tempfile
 import urllib.parse
-from typing import Dict, List, Any, Optional, Tuple, Set
+from typing import Dict, List, Any, Optional, Tuple
 
-from .base import QueryStrategy, create_duckdb_connection
+from .base import DataQueryStrategy, create_duckdb_connection
 from ..models_datacontract import ServerFormat
 
 logger = logging.getLogger("datacontract-mcp.query.s3")
@@ -57,7 +57,7 @@ S3_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", os.getenv("S3_SESSION_TOKEN", 
 S3_PROFILE = os.getenv("AWS_PROFILE", os.getenv("S3_PROFILE", ""))
 
 
-class S3Strategy(QueryStrategy):
+class S3QueryStrategy(DataQueryStrategy):
     """Strategy for querying S3 data sources."""
 
     def execute(self, model_key: str, query: str, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -150,9 +150,9 @@ class S3Strategy(QueryStrategy):
                 f"To allow access, add the bucket to the S3_BUCKETS environment variable."
             )
 
-        # Check against the maximum number of buckets
-        if len(S3_BUCKETS) > S3_MAX_BUCKETS:
-            raise ValueError(
+        # Check bucket against max buckets limit when S3_MAX_BUCKETS is configured
+        if S3_MAX_BUCKETS > 0 and len(S3_BUCKETS) > S3_MAX_BUCKETS:
+            logger.warning(
                 f"Too many buckets configured. Maximum allowed: {S3_MAX_BUCKETS}. "
                 f"Current count: {len(S3_BUCKETS)}. "
                 f"Adjust S3_MAX_BUCKETS environment variable to increase the limit."
