@@ -22,15 +22,10 @@ def get_query_strategy(server_type: ServerType) -> "DataQueryStrategy":
     from .local import LocalFileQueryStrategy
     from .s3 import S3QueryStrategy
     
-    strategies = {
-        ServerType.LOCAL: LocalFileQueryStrategy(),
-        ServerType.FILE: LocalFileQueryStrategy(),
-        ServerType.S3: S3QueryStrategy(),
-        # Add other server types as needed
-    }
-    
-    strategy = strategies.get(server_type)
-    if not strategy:
-        raise ValueError(f"Unsupported server type: {server_type}")
-        
-    return strategy
+    match server_type:
+        case ServerType.LOCAL | ServerType.FILE:
+            return LocalFileQueryStrategy()
+        case ServerType.S3:
+            return S3QueryStrategy()
+        case _:
+            raise ValueError(f"Unsupported server type: {server_type}")

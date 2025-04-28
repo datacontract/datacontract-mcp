@@ -103,13 +103,18 @@ def execute_query(
     contract = get_contract(filename)
 
     # Determine server to use
-    server_key = server_key or next(iter(contract.servers))
+    if not (server_key := server_key or next(iter(contract.servers), None)):
+        raise AssetQueryError("No servers defined in contract")
+    
     if server_key not in contract.servers:
         raise AssetQueryError(f"Server '{server_key}' not found in contract")
+    
     server = contract.servers[server_key]
 
     # Determine model to use
-    model_key = model_key or next(iter(contract.models))
+    if not (model_key := model_key or next(iter(contract.models), None)):
+        raise AssetQueryError("No models defined in contract")
+    
     if model_key not in contract.models:
         raise AssetQueryError(f"Model '{model_key}' not found in contract")
 
@@ -118,8 +123,9 @@ def execute_query(
         strategy = get_query_strategy(server.type)
         return strategy.execute(model_key, query, server.model_dump())
     except Exception as e:
-        logger.error(f"Error executing query: {str(e)}")
-        raise AssetQueryError(f"Error executing query: {str(e)}")
+        error_msg = f"Error executing query: {str(e)}"
+        logger.error(error_msg)
+        raise AssetQueryError(error_msg)
 
 
 def query_contract(
@@ -149,8 +155,8 @@ def query_contract(
     contract = get_contract(filename)
 
     # Use defaults if not specified
-    server_key = server_key or next(iter(contract.servers))
-    model_key = model_key or next(iter(contract.models))
+    server_key = server_key or next(iter(contract.servers), None)
+    model_key = model_key or next(iter(contract.models), None)
 
     # Execute query
     records = execute_query(

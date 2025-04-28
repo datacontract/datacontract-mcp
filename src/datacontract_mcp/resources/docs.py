@@ -65,21 +65,18 @@ def _load_doc_resource(filename: str) -> str:
         File contents as string
     """
     # Check cache first
-    if filename in _docs_cache:
-        return _docs_cache[filename]
+    if content := _docs_cache.get(filename):
+        return content
 
     try:
         resource_extension = Path(filename).suffix.lstrip('.')
-
-        # Try to load from package resources
         resource_path = Path(__file__).parent / resource_extension / filename
 
-        if resource_path.exists():
-            with open(resource_path, "r", encoding="utf-8") as f:
-                content = f.read()
-        else:
+        if not resource_path.exists():
             raise FileNotFoundError(f"Documentation resource {filename} not found")
 
+        content = resource_path.read_text(encoding="utf-8")
+        
         # Cache the content
         _docs_cache[filename] = content
         return content

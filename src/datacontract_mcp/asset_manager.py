@@ -36,12 +36,13 @@ class DataAssetManager:
         Returns:
             JSON schema as string
         """
-        if asset_type == DataAssetType.DATA_CONTRACT:
-            return docs.get_datacontract_schema()
-        elif asset_type == DataAssetType.DATA_PRODUCT:
-            return docs.get_dataproduct_schema()
-        else:
-            raise ValueError(f"Unsupported asset type: {asset_type}")
+        match asset_type:
+            case DataAssetType.DATA_CONTRACT:
+                return docs.get_datacontract_schema()
+            case DataAssetType.DATA_PRODUCT:
+                return docs.get_dataproduct_schema()
+            case _:
+                raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def get_example(asset_type: DataAssetType) -> str:
@@ -54,12 +55,13 @@ class DataAssetManager:
         Returns:
             Example as string
         """
-        if asset_type == DataAssetType.DATA_CONTRACT:
-            return docs.get_datacontract_example()
-        elif asset_type == DataAssetType.DATA_PRODUCT:
-            return docs.get_dataproduct_example()
-        else:
-            raise ValueError(f"Unsupported asset type: {asset_type}")
+        match asset_type:
+            case DataAssetType.DATA_CONTRACT:
+                return docs.get_datacontract_example()
+            case DataAssetType.DATA_PRODUCT:
+                return docs.get_dataproduct_example()
+            case _:
+                raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def list_assets(asset_type: DataAssetType) -> List[str]:
@@ -72,12 +74,13 @@ class DataAssetManager:
         Returns:
             List of filenames
         """
-        if asset_type == DataAssetType.DATA_CONTRACT:
-            return datacontract.list_contract_files()
-        elif asset_type == DataAssetType.DATA_PRODUCT:
-            return dataproduct.list_product_files()
-        else:
-            raise ValueError(f"Unsupported asset type: {asset_type}")
+        match asset_type:
+            case DataAssetType.DATA_CONTRACT:
+                return datacontract.list_contract_files()
+            case DataAssetType.DATA_PRODUCT:
+                return dataproduct.list_product_files()
+            case _:
+                raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def get_asset_content(asset_type: DataAssetType, filename: str) -> str:
@@ -91,12 +94,13 @@ class DataAssetManager:
         Returns:
             File contents as string
         """
-        if asset_type == DataAssetType.DATA_CONTRACT:
-            return datacontract.load_contract_file(filename)
-        elif asset_type == DataAssetType.DATA_PRODUCT:
-            return dataproduct.load_product_file(filename)
-        else:
-            raise ValueError(f"Unsupported asset type: {asset_type}")
+        match asset_type:
+            case DataAssetType.DATA_CONTRACT:
+                return datacontract.load_contract_file(filename)
+            case DataAssetType.DATA_PRODUCT:
+                return dataproduct.load_product_file(filename)
+            case _:
+                raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def validate_asset(asset_type: DataAssetType, filename: str) -> Dict[str, Any]:
@@ -110,14 +114,15 @@ class DataAssetManager:
         Returns:
             Validated asset as a dictionary
         """
-        if asset_type == DataAssetType.DATA_CONTRACT:
-            contract = datacontract.get_contract(filename)
-            return contract.model_dump()
-        elif asset_type == DataAssetType.DATA_PRODUCT:
-            product = dataproduct.get_product(filename)
-            return product.model_dump()
-        else:
-            raise ValueError(f"Unsupported asset type: {asset_type}")
+        match asset_type:
+            case DataAssetType.DATA_CONTRACT:
+                contract = datacontract.get_contract(filename)
+                return contract.model_dump()
+            case DataAssetType.DATA_PRODUCT:
+                product = dataproduct.get_product(filename)
+                return product.model_dump()
+            case _:
+                raise ValueError(f"Unsupported asset type: {asset_type}")
 
     # Product-specific methods
     @staticmethod
@@ -253,9 +258,9 @@ class DataAssetManager:
 
         # Find relationships
         relationships = []
-        for pf in product_files:
+        for product_file in product_files:
             try:
-                product = dataproduct.get_product(pf)
+                product = dataproduct.get_product(product_file)
 
                 # Skip products without output ports
                 if not product.outputPorts:
@@ -263,14 +268,14 @@ class DataAssetManager:
 
                 # Check each output port for a data contract reference
                 for port in product.outputPorts:
-                    if port.dataContractId and port.dataContractId in contract_map:
-                        contract_info = contract_map[port.dataContractId]
+                    if (contract_id := port.dataContractId) and contract_id in contract_map:
+                        contract_info = contract_map[contract_id]
 
                         relationships.append({
                             "product": {
                                 "id": product.id,
                                 "title": product.info.title,
-                                "filename": pf
+                                "filename": product_file
                             },
                             "output_port": {
                                 "id": port.id,
@@ -279,7 +284,7 @@ class DataAssetManager:
                             "contract": contract_info
                         })
             except Exception as e:
-                logger.warning(f"Error loading data product {pf}: {str(e)}")
+                logger.warning(f"Error loading data product {product_file}: {str(e)}")
 
         return relationships
 
@@ -307,21 +312,17 @@ class DataAssetManager:
         }
 
         # Build enhanced output ports
-        output_ports = []
-        for port in product_dict.get("outputPorts", []):
-            port_info = {
+        output_ports = [
+            {
                 "id": port["id"],
                 "name": port.get("name", ""),
                 "description": port.get("description", ""),
                 "type": port.get("type", ""),
-                "location": port.get("location", "")
+                "location": port.get("location", ""),
+                **({"contract": product_relationships[port["id"]]} if port["id"] in product_relationships else {})
             }
-
-            # Add contract info if available
-            if port["id"] in product_relationships:
-                port_info["contract"] = product_relationships[port["id"]]
-
-            output_ports.append(port_info)
+            for port in product_dict.get("outputPorts", [])
+        ]
 
         return {
             "product_id": product_dict["id"],
@@ -343,23 +344,25 @@ class DataAssetManager:
         """
         # Find the related contract for this output port
         relationships = DataAssetManager._find_related_assets()
-        matching_rel = None
-
-        for rel in relationships:
-            if (rel["product"]["filename"] == filename and
-                rel["output_port"]["id"] == port_id):
-                matching_rel = rel
-                break
+        matching_rel = next(
+            (rel for rel in relationships
+             if rel["product"]["filename"] == filename and rel["output_port"]["id"] == port_id),
+            None
+        )
 
         if not matching_rel:
             # Check if the port exists but has no contract
             product_dict = DataAssetManager.validate_asset(DataAssetType.DATA_PRODUCT, filename)
-            for port in product_dict.get("outputPorts", []):
-                if port["id"] == port_id:
-                    return {
-                        "output_port": port_id,
-                        "error": "No data contract linked to this output port"
-                    }
+            port = next(
+                (p for p in product_dict.get("outputPorts", []) if p["id"] == port_id),
+                None
+            )
+
+            if port:
+                return {
+                    "output_port": port_id,
+                    "error": "No data contract linked to this output port"
+                }
 
             return {
                 "error": f"Output port '{port_id}' not found in data product '{filename}'"
@@ -370,21 +373,18 @@ class DataAssetManager:
         contract_dict = DataAssetManager.validate_asset(DataAssetType.DATA_CONTRACT, contract_filename)
 
         # Extract schema information from contract
-        schema = {
+        return {
             "output_port": port_id,
             "contract_id": contract_dict["id"],
-            "models": {}
-        }
-
-        # Include model information from the contract
-        for model_name, model_data in contract_dict.get("models", {}).items():
-            schema["models"][model_name] = {
-                "type": model_data.get("type", ""),
-                "description": model_data.get("description", ""),
-                "fields": model_data.get("fields", {})
+            "models": {
+                model_name: {
+                    "type": model_data.get("type", ""),
+                    "description": model_data.get("description", ""),
+                    "fields": model_data.get("fields", {})
+                }
+                for model_name, model_data in contract_dict.get("models", {}).items()
             }
-
-        return schema
+        }
 
     @staticmethod
     def query_product(
@@ -419,61 +419,68 @@ class DataAssetManager:
             product = dataproduct.get_product(product_filename)
 
             # Find the specified output port or use the first one
-            port = None
             if port_id:
-                for p in product.outputPorts:
-                    if p.id == port_id:
-                        port = p
-                        break
+                port = next(
+                    (p for p in product.outputPorts if p.id == port_id),
+                    None
+                )
                 if not port:
                     raise AssetQueryError(f"Output port '{port_id}' not found in product {product_filename}")
             else:
+                # Check if outputPorts exists and has elements
                 if not product.outputPorts:
                     raise AssetQueryError(f"Data product {product_filename} has no output ports")
                 port = product.outputPorts[0]
 
             # Check if the port has a data contract reference
-            if not port.dataContractId:
+            if not (contract_id := port.dataContractId):
                 raise AssetQueryError(f"Output port '{port.id}' doesn't reference a data contract")
 
             # Find the contract file by ID
-            contract_filename = None
-            for cf in datacontract.list_contract_files():
-                try:
-                    contract = datacontract.get_contract(cf)
-                    if contract.id == port.dataContractId:
-                        contract_filename = cf
-                        break
-                except (AssetLoadError, AssetParseError):
-                    continue
+            try:
+                # Use list comprehension with filtering to get potential contract files
+                matching_contracts = []
+                for cf in datacontract.list_contract_files():
+                    try:
+                        contract = datacontract.get_contract(cf)
+                        if contract.id == contract_id:
+                            matching_contracts.append((cf, contract))
+                    except (AssetLoadError, AssetParseError):
+                        continue
 
-            if not contract_filename:
-                raise AssetQueryError(f"Couldn't find data contract with ID '{port.dataContractId}'")
+                if not matching_contracts:
+                    raise AssetQueryError(f"Couldn't find data contract with ID '{contract_id}'")
 
-            # Query the contract
-            result = datacontract.query_contract(
-                filename=contract_filename,
-                query=query,
-                server_key=server_key,
-                model_key=model_key
-            )
+                # Use the first matching contract
+                contract_filename, contract = matching_contracts[0]
 
-            # Format the response
-            if include_metadata:
-                return {
-                    "product": {
-                        "id": product.id,
-                        "filename": product_filename,
-                        "output_port": port.id
-                    },
-                    "contract": {
-                        "id": port.dataContractId,
-                        "filename": contract_filename
-                    },
-                    "query_result": result.model_dump()
-                }
-            else:
-                return result.records
+                # Query the contract
+                result = datacontract.query_contract(
+                    filename=contract_filename,
+                    query=query,
+                    server_key=server_key,
+                    model_key=model_key
+                )
+
+                # Format the response
+                if include_metadata:
+                    return {
+                        "product": {
+                            "id": product.id,
+                            "filename": product_filename,
+                            "output_port": port.id
+                        },
+                        "contract": {
+                            "id": contract_id,
+                            "filename": contract_filename
+                        },
+                        "query_result": result.model_dump()
+                    }
+                else:
+                    return result.records
+
+            except (AssetLoadError, AssetParseError) as e:
+                raise AssetQueryError(f"Error accessing contract with ID '{contract_id}': {str(e)}")
 
         except (AssetLoadError, AssetParseError) as e:
             # Re-raise preserving the original error
