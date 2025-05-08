@@ -56,8 +56,7 @@ IMPORTANT - ALWAYS follow these guidelines when working with data assets:
 Available tools:
 - dataproducts_list - Lists all available Data Products
 - dataproducts_get - Returns a single Data Product by identifier
-- dataproducts_get_outputs - Gets all output ports from a data product
-- dataproducts_get_output_schema - Gets schema for a specific output port
+- dataproducts_get_output_schema - Gets the data contract schema for a specific output port
 - dataproducts_query - Query data from a data product's output port
     """
 
