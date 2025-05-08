@@ -6,7 +6,8 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Any
 
-from ...asset_identifier import AssetIdentifier, DataAssetType
+from ...types import DataAssetType
+from ...asset_identifier import AssetIdentifier
 from ..asset_source import AssetSourcePlugin
 
 logger = logging.getLogger("datacontract-mcp.sources.asset_plugins.local")

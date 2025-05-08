@@ -1,21 +1,13 @@
 """Object-oriented asset identification system for data contracts and data products."""
 
 import logging
-from enum import Enum
-from .sources.asset_source import AssetSourceRegistry
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger("datacontract-mcp.asset_identifier")
 
-
-class DataAssetType(str, Enum):
-    """Types of data assets supported."""
-    DATA_CONTRACT = "contract"
-    DATA_PRODUCT = "product"
-
-
-class AssetLoadError(Exception):
-    """Error raised when loading an asset fails."""
-    pass
+# Avoid circular import
+if TYPE_CHECKING:
+    from .sources.asset_source import AssetSourceRegistry
 
 
 class AssetIdentifier:
@@ -60,6 +52,9 @@ class AssetIdentifier:
         Raises:
             ValueError: If the string format is invalid
         """
+        # Import here to avoid circular imports
+        from .sources.asset_source import AssetSourceRegistry
+        
         # Use the asset source registry to parse and create the identifier
         identifier = AssetSourceRegistry.get_identifier_from_string(identifier_str)
 
@@ -91,6 +86,8 @@ class AssetIdentifier:
         Raises:
             AssetLoadError: If loading fails
         """
+        # Import here to avoid circular imports
+        from .sources.asset_source import AssetSourceRegistry
         return AssetSourceRegistry.load_content(self)
 
     def __str__(self) -> str:

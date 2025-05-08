@@ -109,8 +109,10 @@ class DataSourcePlugin(ABC):
             Decorator function
         """
         def decorator(plugin_class: Type['DataSourcePlugin']) -> Type['DataSourcePlugin']:
-            cls._registry[server_type] = plugin_class
-            logger.info(f"Registered data source plugin for server type: {server_type}")
+            # Check if already registered to avoid duplicate messages
+            if server_type not in cls._registry:
+                cls._registry[server_type] = plugin_class
+                logger.debug(f"Registered data source plugin for server type: {server_type}")
             return plugin_class
         return decorator
 
@@ -159,11 +161,27 @@ class DataSourceRegistry:
         if cls._plugins_discovered:
             return
 
+        # We don't need to clear instances here - if they're already
+        # properly created from previous imports, we should keep them
+            
         try:
             # Import the plugins package to trigger registration
-            from ..sources import data_plugins
+            try:
+                # First, try to import the whole plugins package
+                # This will trigger imports in __init__.py which registers plugins
+                from ..sources import data_plugins
+                
+                # If we have plugins registered after importing the package, we're done
+                if DataSourcePlugin.get_registered_types():
+                    cls._plugins_discovered = True
+                    logger.debug(f"Data plugins already registered: {', '.join(DataSourcePlugin.get_registered_types())}")
+                    return
+                    
+            except ImportError:
+                logger.warning("Data source plugins package not found, skipping auto-discovery")
+                return
 
-            # Scan the plugins package for modules
+            # Only scan if we need to discover more plugins
             for _, name, is_pkg in pkgutil.iter_modules(data_plugins.__path__, data_plugins.__name__ + '.'):
                 if not is_pkg:
                     try:
@@ -173,16 +191,26 @@ class DataSourceRegistry:
                         logger.warning(f"Error loading data source plugin module {name}: {str(e)}")
 
             cls._plugins_discovered = True
-        except ImportError:
-            logger.warning("Data source plugins package not found, skipping auto-discovery")
+        except Exception as e:
+            logger.warning(f"Error during data source plugin discovery: {str(e)}")
 
     @classmethod
     def register_source(cls, server_type: str, plugin_class: Type[DataSourcePlugin]) -> None:
         """Register a data source plugin class."""
+        # Check if already registered with the same class to avoid duplicate messages
+        if server_type in DataSourcePlugin._registry:
+            if DataSourcePlugin._registry[server_type] == plugin_class:
+                # Already registered with the same class, nothing to do
+                return
+            else:
+                # Log a warning if trying to register a different class for the same source
+                logger.warning(f"Replacing existing data source plugin for {server_type}")
+        
+        # Register the plugin
         DataSourcePlugin._registry[server_type] = plugin_class
-        logger.info(f"Registered data source plugin for server type: {server_type}")
+        logger.debug(f"Registered data source plugin for server type: {server_type}")
 
-        # Clear instance if it exists to ensure fresh instantiation
+        # Clear instance if it exists to ensure fresh instantiation with the new class
         if server_type in cls._instances:
             del cls._instances[server_type]
 

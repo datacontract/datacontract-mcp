@@ -5,10 +5,16 @@ import importlib
 import pkgutil
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Type, ClassVar
+from typing import Dict, List, Any, Optional, Type, ClassVar, TYPE_CHECKING, ForwardRef
 
-from ..asset_identifier import AssetIdentifier, DataAssetType
+from ..types import DataAssetType
 from ..config import get_source_config, get_enabled_sources
+
+# Use a forward reference for AssetIdentifier to avoid circular import
+if TYPE_CHECKING:
+    from ..asset_identifier import AssetIdentifier
+else:
+    AssetIdentifier = ForwardRef('AssetIdentifier')
 
 logger = logging.getLogger("datacontract-mcp.sources.asset_source")
 
@@ -115,10 +121,12 @@ class AssetSourcePlugin(ABC):
         # Create an instance to get the source name
         plugin_instance = plugin_class()
         source_name = plugin_instance.source_name
-
-        cls._registry[source_name] = plugin_class
-        logger.info(f"Registered asset source plugin: {source_name}")
-
+        
+        # Check if already registered to avoid duplicate messages
+        if source_name not in cls._registry:
+            cls._registry[source_name] = plugin_class
+            logger.debug(f"Registered asset source plugin: {source_name}")
+        
         return plugin_class
 
     @classmethod
@@ -162,11 +170,27 @@ class AssetSourceRegistry:
         if cls._plugins_discovered:
             return
 
+        # We don't need to clear instances here - if they're already
+        # properly created from previous imports, we should keep them
+        
         try:
             # Import the plugins package to trigger registration
-            from ..sources import asset_plugins
+            try:
+                # First, try to import the whole plugins package
+                # This will trigger imports in __init__.py which registers plugins
+                from ..sources import asset_plugins
+                
+                # If we have plugins registered after importing the package, we're done
+                if AssetSourcePlugin.get_registered_sources():
+                    cls._plugins_discovered = True
+                    logger.debug(f"Asset plugins already registered: {', '.join(AssetSourcePlugin.get_registered_sources())}")
+                    return
+                    
+            except ImportError:
+                logger.warning("Asset source plugins package not found, skipping auto-discovery")
+                return
 
-            # Scan the plugins package for modules
+            # Only scan if we need to discover more plugins
             for _, name, is_pkg in pkgutil.iter_modules(asset_plugins.__path__, asset_plugins.__name__ + '.'):
                 if not is_pkg:
                     try:
@@ -176,16 +200,26 @@ class AssetSourceRegistry:
                         logger.warning(f"Error loading asset source plugin module {name}: {str(e)}")
 
             cls._plugins_discovered = True
-        except ImportError:
-            logger.warning("Asset source plugins package not found, skipping auto-discovery")
+        except Exception as e:
+            logger.warning(f"Error during asset source plugin discovery: {str(e)}")
 
     @classmethod
     def register_source(cls, source_name: str, plugin_class: Type[AssetSourcePlugin]) -> None:
         """Register a source plugin class."""
+        # Check if already registered with the same class to avoid duplicate messages
+        if source_name in AssetSourcePlugin._registry:
+            if AssetSourcePlugin._registry[source_name] == plugin_class:
+                # Already registered with the same class, nothing to do
+                return
+            else:
+                # Log a warning if trying to register a different class for the same source
+                logger.warning(f"Replacing existing asset source plugin for {source_name}")
+        
+        # Register the plugin
         AssetSourcePlugin._registry[source_name] = plugin_class
-        logger.info(f"Registered asset source plugin: {source_name}")
+        logger.debug(f"Registered asset source plugin: {source_name}")
 
-        # Clear instance if it exists to ensure fresh instantiation
+        # Clear instance if it exists to ensure fresh instantiation with the new class
         if source_name in cls._instances:
             del cls._instances[source_name]
 

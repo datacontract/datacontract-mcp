@@ -16,10 +16,8 @@ class AssetQueryError(Exception):
     """Error raised when querying an asset fails."""
     pass
 
-from .asset_identifier import (
-    AssetIdentifier,
-    DataAssetType
-)
+from .types import DataAssetType
+from .asset_identifier import AssetIdentifier
 
 from .sources.data_source import ServerType
 from .sources.data_source import DataSourceRegistry
@@ -150,7 +148,7 @@ class DataAssetManager:
 
     @staticmethod
     def query_product(
-            product_identifier: AssetIdentifier,
+            identifier: AssetIdentifier,
             query: str,
             port_id: Optional[str] = None,
             server_key: Optional[str] = None,
@@ -165,7 +163,7 @@ class DataAssetManager:
         2. If no data contract is available, it will query the output port directly using its server information
 
         Args:
-            product_identifier: Identifier for the data product
+            identifier: Identifier for the data product
             query: SQL query to execute
             port_id: Optional ID of the output port (uses first port if not specified)
             server_key: Optional key of the server to use in the contract (if using data contract)
@@ -183,9 +181,9 @@ class DataAssetManager:
         """
         matching_contract_identifier = None  # Initialize to avoid fragile checking
 
-        with handle_asset_errors("querying product", product_identifier):
+        with handle_asset_errors("querying product", identifier):
             # Load and parse the data product using our helper
-            product = DataAssetManager._load_and_parse_asset(product_identifier)
+            product = DataAssetManager._load_and_parse_asset(identifier)
 
             # Find the specified output port or use the first one
             port = DataAssetManager._get_output_port(product, port_id)
@@ -222,7 +220,7 @@ class DataAssetManager:
             return DataAssetManager._format_query_response(
                 result=result,
                 product=product,
-                product_identifier=product_identifier,
+                product_identifier=identifier,
                 port=port,
                 query=query,
                 model_key=model_key,
