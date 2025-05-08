@@ -11,6 +11,7 @@ The Data Contract MCP Server provides an AI-friendly interface to data products 
 - **Asset Management**: Load and organize data products and contracts from diverse sources
 - **Contract Compliance**: Ensure data usage complies with data contracts
 - **Smart Data Querying**: Query data using natural language through various storage systems
+- **Federated Queries (Alpha)**: Join data across multiple data products from different sources
 - **Flexible Identification**: Support for various identifier formats (asset identifiers, URNs, plain IDs)
 - **Local & Remote Support**: Work with local files or remote systems like Data Mesh Manager
 - **Plugin Architecture**: Extensible plugin system for adding new asset sources and data sources
@@ -20,6 +21,7 @@ The Data Contract MCP Server provides an AI-friendly interface to data products 
 - AI assistants exploring available data products
 - Analyzing data contract schemas and requirements
 - Executing SQL queries against data products
+- Joining data across multiple products for complex analyses
 - Validating data quality against contract specifications
 - Building data-aware AI applications
 
@@ -95,6 +97,7 @@ Add this configuration to your Claude installation:
 | `dataproducts_get` | Retrieve a specific data product by identifier |
 | `dataproducts_get_output_schema` | Get schema for a data contract linked to a product output port |
 | `dataproducts_query` | Execute SQL queries against data product output ports |
+| `dataproducts_query_federated` | **(Alpha)** Execute SQL queries across multiple data products and join their results |
 
 ### Examples
 
@@ -126,6 +129,24 @@ dataproducts_query(
     query="SELECT * FROM customers LIMIT 10;",
     port_id="snowflake_customers_latest_npii_v1",
     server="default",
+    include_metadata=True
+)
+```
+
+#### Execute a Federated Query (Alpha)
+```
+dataproducts_query_federated(
+    sources=[
+        {
+            "product_id": "local:product/orders.dataproduct.yaml",
+            "alias": "orders"
+        },
+        {
+            "product_id": "local:product/video_history.dataproduct.yaml", 
+            "alias": "videos"
+        }
+    ],
+    query="SELECT o.customer_id, v.video_id, o.order_date, v.view_date FROM orders o JOIN videos v ON o.customer_id = v.user_id WHERE o.order_date > '2023-01-01'",
     include_metadata=True
 )
 ```
