@@ -13,6 +13,7 @@ The Data Contract MCP Server provides an AI-friendly interface to data products 
 - **Smart Data Querying**: Query data using natural language through various storage systems
 - **Flexible Identification**: Support for various identifier formats (asset identifiers, URNs, plain IDs)
 - **Local & Remote Support**: Work with local files or remote systems like Data Mesh Manager
+- **Plugin Architecture**: Extensible plugin system for adding new asset sources and data sources
 
 ## Use Cases
 
@@ -142,6 +143,22 @@ The `examples` directory contains sample files for both data products and their 
 - `orders.datacontract.yaml` - Defines order data structure and rules
 - `shelf_warmers.datacontract.yaml` - Contract for product inventory analysis
 - `video_history.datacontract.yaml` - Specifications for video consumption data
+
+## Architecture
+
+The Data Contract MCP Server uses a plugin-based architecture that cleanly separates:
+
+### Asset Sources (Metadata)
+These plugins handle loading and listing data assets (products and contracts):
+- **Local files**: Loads YAML files from a local directory
+- **Data Mesh Manager**: Fetches assets from a Data Mesh Manager API
+
+### Data Sources (Query Execution)
+These plugins handle the actual data querying:
+- **Local files**: Queries CSV, JSON, or Parquet files using DuckDB
+- **S3**: Queries data in S3 buckets using DuckDB's S3 integration
+
+The plugin architecture makes it easy to add support for additional asset sources (e.g., Git repositories, other APIs) and data sources (e.g., databases, data warehouses).
 
 ## Configuration Options
 

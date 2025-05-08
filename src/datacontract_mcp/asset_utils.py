@@ -5,11 +5,9 @@ import os
 import yaml
 from typing import List, Type, TypeVar, Dict, Any, Optional
 
-from .asset_identifier import (
-    AssetIdentifier,
-    LocalAssetIdentifier,
-    DataMeshManagerAssetIdentifier
-)
+from .asset_identifier import AssetIdentifier
+from .sources.asset_plugins.local import LocalAssetIdentifier
+from .sources.asset_plugins.datameshmanager import DataMeshManagerAssetIdentifier
 
 # Type variable for Pydantic models
 T = TypeVar('T')
@@ -63,27 +61,27 @@ def parse_yaml(content: str) -> Dict[str, Any]:
     try:
         # Parse with PyYAML to get the raw dictionary
         asset_dict = yaml.safe_load(content)
-        
+
         if not isinstance(asset_dict, dict):
             raise AssetParseError("YAML content does not represent a dictionary")
-            
+
         # Make sure we have at least basic required fields
         if "id" not in asset_dict:
             logger.warning("Missing 'id' field in asset")
             # Use a default ID based on content hash if missing
             import hashlib
             asset_dict["id"] = f"default_{hashlib.md5(content.encode()).hexdigest()[:8]}"
-            
+
         # Ensure we have an info section with at least a title
         if "info" not in asset_dict or not isinstance(asset_dict["info"], dict):
             logger.warning("Missing or invalid 'info' section in asset, creating default")
             asset_dict["info"] = asset_dict.get("info", {})
             if not isinstance(asset_dict["info"], dict):
                 asset_dict["info"] = {}
-                
+
         if "title" not in asset_dict["info"]:
             asset_dict["info"]["title"] = asset_dict.get("id", "Untitled")
-        
+
         return asset_dict
 
     except yaml.YAMLError as e:
@@ -138,42 +136,6 @@ def add_to_datamesh_cache(identifier: AssetIdentifier, data: Dict[str, Any]) -> 
         DATAMESHMANAGER_CACHE["data_products"][cache_key] = data
     elif identifier.is_contract():
         DATAMESHMANAGER_CACHE["data_contracts"][cache_key] = data
-
-
-def get_from_datamesh_cache(identifier: AssetIdentifier) -> Optional[Dict[str, Any]]:
-    """
-    Get data from the DataMeshManager cache.
-
-    Args:
-        identifier: Asset identifier
-
-    Returns:
-        Cached data or None if not found
-    """
-    if not isinstance(identifier, DataMeshManagerAssetIdentifier):
-        return None
-
-    cache_key = str(identifier)
-
-    if identifier.is_product():
-        return DATAMESHMANAGER_CACHE["data_products"].get(cache_key)
-    elif identifier.is_contract():
-        return DATAMESHMANAGER_CACHE["data_contracts"].get(cache_key)
-
-    return None
-
-
-def sanitize_id_for_filename(identifier: str) -> str:
-    """
-    Sanitize an identifier for use in a filename.
-
-    Args:
-        identifier: Identifier to sanitize
-
-    Returns:
-        Sanitized identifier
-    """
-    return identifier.replace("/", "_").replace(":", "_")
 
 
 def list_assets(asset_type: str) -> List[AssetIdentifier]:

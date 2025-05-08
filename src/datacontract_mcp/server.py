@@ -1,10 +1,8 @@
 import logging
-import yaml
-import re
 
 from dotenv import load_dotenv
 from mcp.server import FastMCP
-from typing import Union, List, Dict, Any, Optional
+from typing import Union, List, Dict, Any
 
 load_dotenv()
 
@@ -77,10 +75,10 @@ async def dataproduct_example() -> str:
     return DataAssetManager.get_example(asset_type=DataAssetType.DATA_PRODUCT)
 
 @app.resource("datacontract-ref://schema", name="Data Contract Schema")
-async def dataproduct_schema() -> str:
+async def datacontract_schema() -> str:
     """The official Data Contract JSON schema"""
     logger.debug("Fetching schema")
-    return DataAssetManager.get_schema(asset_type=DataAssetType.DATA_PRODUCT)
+    return DataAssetManager.get_schema(asset_type=DataAssetType.DATA_CONTRACT)
 
 # Data Product tools
 @app.tool("dataproducts_list")

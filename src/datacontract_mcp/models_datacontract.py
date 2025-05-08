@@ -214,13 +214,3 @@ class DataContract(BaseModel):
                     raise ValueError(f"Server '{key}' of type {server.type} must have a 'location'")
 
         return self
-
-
-class QueryResult(BaseModel):
-    """Result of a Data Contract query."""
-    model_config = ConfigDict(extra="allow")
-
-    records: List[Dict[str, Any]]
-    query: str
-    model_key: str
-    server_key: str
