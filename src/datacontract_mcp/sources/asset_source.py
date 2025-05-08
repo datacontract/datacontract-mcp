@@ -3,10 +3,12 @@
 import logging
 import importlib
 import pkgutil
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Type, ClassVar
 
 from ..asset_identifier import AssetIdentifier, DataAssetType
+from ..config import get_source_config, get_enabled_sources
 
 logger = logging.getLogger("datacontract-mcp.sources.asset_source")
 
@@ -207,14 +209,10 @@ class AssetSourceRegistry:
             instance = plugin_class()
 
             # Apply configuration from environment variables
-            try:
-                from ..config import get_source_config
-                source_config = get_source_config(source_name)
-                if source_config:
-                    instance.configure(source_config)
-                    logger.debug(f"Applied configuration to asset source: {source_name}")
-            except ImportError:
-                logger.debug("Config module not available")
+            source_config = get_source_config(source_name)
+            if source_config:
+                instance.configure(source_config)
+                logger.debug(f"Applied configuration to asset source: {source_name}")
 
             cls._instances[source_name] = instance
             return instance
@@ -225,21 +223,20 @@ class AssetSourceRegistry:
     @classmethod
     def get_available_sources(cls) -> List[str]:
         """Get a list of all available source names."""
-        # Try using the configuration system to determine enabled sources
-        try:
-            from ..config import get_enabled_sources
-            enabled_sources = get_enabled_sources()
+        # Get enabled sources from global config function
+        enabled_sources = get_enabled_sources()
 
-            available_sources = []
-            for source_name in enabled_sources:
-                # Get the source plugin
-                source = cls.get_source(source_name)
-                if source:
-                    available_sources.append(source_name)
+        available_sources = []
+        for source_name in enabled_sources:
+            # Get the source plugin
+            source = cls.get_source(source_name)
+            if source:
+                available_sources.append(source_name)
 
+        if available_sources:
             return available_sources
-        except ImportError:
-            logger.debug("Config module not available, using plugin availability checks")
+
+        # Fallback to plugin availability checks if no sources were found
 
         # Discover plugins if not already done
         cls.discover_plugins()
@@ -326,7 +323,7 @@ class AssetSourceRegistry:
         source = cls.get_source(source_name)
 
         if not source:
-            from ..asset_utils import AssetLoadError
+            from ..asset_manager import AssetLoadError
             raise AssetLoadError(f"Unknown source: {source_name}")
 
         return source.load_asset_content(identifier)

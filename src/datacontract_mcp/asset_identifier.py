@@ -2,7 +2,7 @@
 
 import logging
 from enum import Enum
-from typing import Optional, Union
+from .sources.asset_source import AssetSourceRegistry
 
 logger = logging.getLogger("datacontract-mcp.asset_identifier")
 
@@ -20,16 +20,16 @@ class AssetLoadError(Exception):
 
 class AssetIdentifier:
     """Base class for all asset identifiers.
-    
+
     An AssetIdentifier uniquely identifies a data asset (contract or product)
     and provides methods to load its content. Each identifier is associated with
     a specific source (e.g., local files, DataMeshManager API).
-    
+
     The string representation format is [source]:[type]/[id], for example:
     - local:product/orders.dataproduct.yaml
     - datameshmanager:contract/123
     """
-    
+
     def __init__(self, asset_id: str, asset_type: str, source_name: str):
         """
         Initialize an asset identifier.
@@ -50,23 +50,22 @@ class AssetIdentifier:
     def from_string(cls, identifier_str: str) -> 'AssetIdentifier':
         """
         Create an asset identifier from a string representation.
-        
+
         Args:
             identifier_str: String in the format [source]:[type]/[id]
-            
+
         Returns:
             AssetIdentifier instance
-            
+
         Raises:
             ValueError: If the string format is invalid
         """
         # Use the asset source registry to parse and create the identifier
-        from .sources.asset_source import AssetSourceRegistry
         identifier = AssetSourceRegistry.get_identifier_from_string(identifier_str)
-        
+
         if not identifier:
             raise ValueError(f"Invalid asset identifier format: {identifier_str}")
-            
+
         return identifier
 
     @property
@@ -85,14 +84,13 @@ class AssetIdentifier:
     def load_content(self) -> str:
         """
         Load the content of this asset.
-        
+
         Returns:
             Content as a string
-            
+
         Raises:
             AssetLoadError: If loading fails
         """
-        from .sources.asset_source import AssetSourceRegistry
         return AssetSourceRegistry.load_content(self)
 
     def __str__(self) -> str:

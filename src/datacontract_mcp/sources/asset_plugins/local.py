@@ -11,10 +11,7 @@ from ..asset_source import AssetSourcePlugin
 
 logger = logging.getLogger("datacontract-mcp.sources.asset_plugins.local")
 
-# Define error class locally to avoid circular imports
-class AssetLoadError(Exception):
-    """Error occurred while loading an asset."""
-    pass
+from ...asset_manager import AssetLoadError
 
 
 class LocalAssetIdentifier(AssetIdentifier):

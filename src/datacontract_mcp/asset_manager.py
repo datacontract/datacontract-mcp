@@ -4,12 +4,17 @@ import logging
 import contextlib
 from typing import Dict, List, Optional, Any, Union, Tuple, Generator
 
-from .asset_utils import (
-    AssetLoadError,
-    AssetParseError,
-    AssetQueryError,
-    parse_yaml
-)
+from .utils.yaml_utils import parse_yaml, AssetParseError
+
+
+class AssetLoadError(Exception):
+    """Error raised when loading an asset file fails."""
+    pass
+
+
+class AssetQueryError(Exception):
+    """Error raised when querying an asset fails."""
+    pass
 
 from .asset_identifier import (
     AssetIdentifier,
@@ -84,13 +89,12 @@ class DataAssetManager:
         Returns:
             JSON schema as string
         """
-        match asset_type:
-            case DataAssetType.DATA_CONTRACT:
-                return docs.get_datacontract_schema()
-            case DataAssetType.DATA_PRODUCT:
-                return docs.get_dataproduct_schema()
-            case _:
-                raise ValueError(f"Unsupported asset type: {asset_type}")
+        if asset_type == DataAssetType.DATA_CONTRACT:
+            return docs.get_datacontract_schema()
+        elif asset_type == DataAssetType.DATA_PRODUCT:
+            return docs.get_dataproduct_schema()
+        else:
+            raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def get_example(asset_type: DataAssetType) -> str:
@@ -103,13 +107,12 @@ class DataAssetManager:
         Returns:
             Example as string
         """
-        match asset_type:
-            case DataAssetType.DATA_CONTRACT:
-                return docs.get_datacontract_example()
-            case DataAssetType.DATA_PRODUCT:
-                return docs.get_dataproduct_example()
-            case _:
-                raise ValueError(f"Unsupported asset type: {asset_type}")
+        if asset_type == DataAssetType.DATA_CONTRACT:
+            return docs.get_datacontract_example()
+        elif asset_type == DataAssetType.DATA_PRODUCT:
+            return docs.get_dataproduct_example()
+        else:
+            raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
     def list_assets(asset_type: DataAssetType) -> List[AssetIdentifier]:
@@ -472,7 +475,7 @@ class DataAssetManager:
             return server
 
     @staticmethod
-    def _resolve_server_type(port: Dict[str, Any], server_config: Dict[str, Any]) -> ServerType:
+    def _resolve_server_type(port: Dict[str, Any], server_config: Dict[str, Any]) -> str:
         """
         Resolve the server type from port information and server configuration.
 
@@ -481,7 +484,7 @@ class DataAssetManager:
             server_config: Server configuration dictionary
 
         Returns:
-            Resolved ServerType
+            Resolved server type as a string
 
         Raises:
             AssetQueryError: If server type cannot be resolved
@@ -506,7 +509,17 @@ class DataAssetManager:
             else:
                 raise AssetQueryError(f"Unsupported server type '{port_type}' for direct querying")
 
-        return server_type
+        # Ensure we always return a string value
+        if isinstance(server_type, str):
+            return server_type
+        else:
+            # Convert any ServerType enum object to its string value
+            for attr_name in dir(ServerType):
+                if attr_name.isupper() and getattr(ServerType, attr_name) == server_type:
+                    return getattr(ServerType, attr_name)
+            
+            # Fallback: convert to string if all else fails
+            return str(server_type)
 
     @staticmethod
     def _query_from_data_contract(
@@ -560,14 +573,15 @@ class DataAssetManager:
             if not server_type:
                 raise AssetQueryError("Server missing 'type' field")
 
-            # Convert string to server type constant if needed
+            # Ensure server_type is a valid string value
             if isinstance(server_type, str):
                 server_type = server_type.lower()
-                # Look up the server type in the ServerType class by name
-                if hasattr(ServerType, server_type.upper()):
-                    server_type = getattr(ServerType, server_type.upper())
-                else:
+                # Check if server_type corresponds to a known server type
+                if not hasattr(ServerType, server_type.upper()):
                     logger.warning(f"Unknown server type '{server_type}', using as is")
+            else:
+                # Convert non-string type to string
+                server_type = str(server_type)
 
             # Execute the query using the DataSourceRegistry
             records = DataSourceRegistry.execute_query(server_type, model_key, query, server)
@@ -606,7 +620,7 @@ class DataAssetManager:
             # Resolve server type
             server_type = DataAssetManager._resolve_server_type(port, server_config)
 
-            # Add type to config
+            # Add type to config - ensure it's a string
             server_config["type"] = server_type
 
             # For LOCAL type, ensure path is set (use location if path not available)

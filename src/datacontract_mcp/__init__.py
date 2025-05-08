@@ -7,7 +7,8 @@ from .asset_identifier import AssetIdentifier, DataAssetType
 from .sources.asset_plugins.local import LocalAssetIdentifier
 from .sources.asset_plugins.datameshmanager import DataMeshManagerAssetIdentifier
 from .asset_manager import DataAssetManager
-from .asset_utils import AssetLoadError, AssetParseError, AssetQueryError
+from .asset_manager import AssetLoadError, AssetQueryError
+from .utils.yaml_utils import AssetParseError
 
 # Import source plugins to ensure they're registered
 from .sources import asset_source, data_source

@@ -3,8 +3,11 @@
 import logging
 import importlib
 import pkgutil
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Type, ClassVar
+
+from ..config import get_source_config
 
 logger = logging.getLogger("datacontract-mcp.sources.data_source")
 
@@ -209,7 +212,6 @@ class DataSourceRegistry:
 
             # Apply configuration from environment variables
             try:
-                from ..config import get_source_config
                 source_config = get_source_config(server_type)
                 if source_config:
                     instance.configure(source_config)
@@ -261,7 +263,7 @@ class DataSourceRegistry:
         source = cls.get_source(server_type)
 
         if not source:
-            from ..asset_utils import AssetQueryError
+            from ..asset_manager import AssetQueryError
             supported_types = ", ".join(cls.get_available_sources())
             raise AssetQueryError(
                 f"Unsupported server type: {server_type}. Available types: {supported_types}"
@@ -270,7 +272,7 @@ class DataSourceRegistry:
         try:
             return source.execute(model_key, query, server_config)
         except Exception as e:
-            from ..asset_utils import AssetQueryError
+            from ..asset_manager import AssetQueryError
             raise AssetQueryError(f"Error executing query on {server_type}: {str(e)}")
 
     @classmethod
