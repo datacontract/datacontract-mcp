@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from .base import DataQueryStrategy, create_duckdb_connection
 from ..models_datacontract import ServerFormat
@@ -32,60 +32,95 @@ class LocalFileQueryStrategy(DataQueryStrategy):
             FileNotFoundError: If the data file is not found
         """
         path = server_config.get('path')
-        format = server_config.get('format')
+        format_value = server_config.get('format')
 
         if not path:
             raise ValueError("Local server must specify a 'path'")
-        if not format:
+        if not format_value:
             raise ValueError("Local server must specify a 'format'")
 
-        # Choose the appropriate format handler
-        handlers = {
-            ServerFormat.CSV: self._handle_csv,
-            ServerFormat.JSON: None,  # Not implemented yet
-            ServerFormat.PARQUET: None,  # Not implemented yet
-            ServerFormat.DELTA: None  # Not implemented yet
-        }
+        # Normalize format to ServerFormat enum
+        format_enum = self.normalize_format(format_value)
+        if not format_enum:
+            raise ValueError(f"Unsupported format '{format_value}' for local server")
 
-        handler = handlers.get(format)
-        if not handler:
-            raise ValueError(f"Unsupported format '{format}' for local server")
+        # Get DuckDB import statement based on format
+        duckdb_import = self._get_duckdb_import_statement(format_enum)
+        if not duckdb_import:
+            raise ValueError(f"No handler available for format '{format_enum}'")
 
-        return handler(model_key, query, path)
+        # Execute the query using the generic handler
+        return self._execute_query(model_key, query, path, duckdb_import)
 
-    def _handle_csv(self, model_key: str, query: str, path: str) -> List[Dict[str, Any]]:
-        """Handle CSV format from local file system.
+    # Use normalize_format from base class
+
+    def _get_duckdb_import_statement(self, format_enum: ServerFormat) -> Optional[str]:
+        """Get the appropriate DuckDB import statement for a format.
 
         Args:
-            model_key: The name of the model to query
-            query: The SQL query to execute
-            path: The path to the CSV file
+            format_enum: The normalized format enum
 
         Returns:
-            A list of query result records
+            DuckDB SQL import statement or None if unsupported
+        """
+        # Map of formats to their DuckDB import statements
+        format_handlers = {
+            ServerFormat.CSV: """
+                SELECT * FROM read_csv(
+                    '{file_path}', 
+                    auto_type_candidates=['BIGINT','VARCHAR','BOOLEAN','DOUBLE']
+                )
+            """,
+            ServerFormat.JSON: """
+                SELECT * FROM read_json(
+                    '{file_path}', 
+                    auto_detect=TRUE
+                )
+            """,
+            ServerFormat.PARQUET: """
+                SELECT * FROM read_parquet('{file_path}')
+            """,
+            # DELTA format not yet implemented
+            ServerFormat.DELTA: None
+        }
+
+        return format_handlers.get(format_enum)
+
+    def _execute_query(self, model_key: str, query: str, path: str,
+                       duckdb_import: str) -> List[Dict[str, Any]]:
+        """Execute a query using DuckDB with the given import statement.
+
+        Args:
+            model_key: The name to use for the model/table
+            query: The SQL query to execute
+            path: Path to the data file
+            duckdb_import: DuckDB import statement with {file_path} placeholder
+
+        Returns:
+            Query results as list of dictionaries
 
         Raises:
-            FileNotFoundError: If the CSV file is not found
+            FileNotFoundError: If the data file doesn't exist
         """
-        # Full path to the data file
-        file_path = os.path.join(datacontracts_source, path)
+        # Check if path is absolute or relative
+        if os.path.isabs(path):
+            file_path = path
+        else:
+            # Get full path by joining with datacontracts_source
+            file_path = os.path.join(datacontracts_source, path)
+
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Data file {file_path} not found")
 
         # Use the context manager for DuckDB connection
         with create_duckdb_connection() as conn:
+            # Format the import statement with the file path
+            formatted_import = duckdb_import.format(file_path=file_path)
+
             # Create a table for the model
-            sql = f"""
-            CREATE TABLE "{model_key}" AS
-            SELECT * FROM read_csv(
-                '{file_path}', 
-                auto_type_candidates=['BIGINT','VARCHAR','BOOLEAN','DOUBLE']
-            );
-            """
-            conn.execute(sql)
+            create_table_sql = f'CREATE TABLE "{model_key}" AS {formatted_import};'
+            conn.execute(create_table_sql)
 
-            # Execute the query
+            # Execute the query and convert results to records
             df = conn.execute(query).fetchdf()
-
-            # Convert to records and return
             return df.to_dict(orient="records")

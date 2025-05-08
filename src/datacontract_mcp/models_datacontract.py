@@ -2,7 +2,7 @@
 
 from enum import Enum
 from typing import Dict, List, Optional, Any, Literal
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
 
 
 class ServerType(str, Enum):
@@ -105,7 +105,6 @@ class LocalServer(BaseServer):
     description: Optional[str] = None
 
     @field_validator("format")
-    @classmethod
     def validate_format(cls, v):
         """Validate that format is valid for local/file server."""
         if v not in [ServerFormat.CSV, ServerFormat.JSON, ServerFormat.PARQUET, ServerFormat.DELTA]:
@@ -122,7 +121,6 @@ class S3Server(BaseServer):
     endpointUrl: Optional[str] = None
     
     @field_validator("location")
-    @classmethod
     def validate_location(cls, v):
         """Validate that location is a valid S3 URL."""
         if not v.startswith("s3://"):
@@ -130,7 +128,6 @@ class S3Server(BaseServer):
         return v
         
     @field_validator("format")
-    @classmethod
     def validate_format(cls, v):
         """Validate that format is valid for S3 server if provided."""
         if v is not None and v not in [ServerFormat.CSV, ServerFormat.JSON, ServerFormat.PARQUET, ServerFormat.DELTA]:
@@ -138,7 +135,6 @@ class S3Server(BaseServer):
         return v
         
     @field_validator("delimiter")
-    @classmethod
     def validate_delimiter(cls, v, info):
         """Validate that delimiter is only used with JSON format."""
         values = info.data
@@ -147,7 +143,7 @@ class S3Server(BaseServer):
         return v
 
 
-class Field(BaseModel):
+class FieldDefinition(BaseModel):
     """Field definition in a data contract model."""
     model_config = ConfigDict(extra="allow")
 
@@ -171,7 +167,7 @@ class Model(BaseModel):
 
     description: Optional[str] = None
     type: Optional[ModelType] = ModelType.TABLE
-    fields: Dict[str, Field] = Field(default_factory=dict)
+    fields: Dict[str, FieldDefinition] = Field(default_factory=dict)
     primaryKey: Optional[List[str]] = None
     title: Optional[str] = None
 

@@ -1,9 +1,9 @@
 from . import server
-from . import datacontract
+from .datameshmanager import DataMeshManager
 
 def main():
     """Main entry point for the package."""
     server.main()
 
 # Expose core modules at package level
-__all__ = ['main', 'server', 'datacontract']
+__all__ = ['main', 'server', 'DataMeshManager']

@@ -1,16 +1,26 @@
-# DataProduct MCP Server
+# Data Contract & Product MCP Server
 
-A server that helps you work with Data Products - making it easy to load, validate, query, and analyze your data assets, including their linked data contracts.
+An MCP server designed to manage Data Products and Contracts - enabling AI-assisted data discovery, querying, and analysis.
 
-## What It Does
+## Overview
 
-This MCP server provides a simple interface for working with Data Products:
+The Data Contract MCP Server provides an AI-friendly interface to data products and their associated data contracts. It enables LLM agents to locate, analyze, and query data effectively while adhering to data contract specifications.
 
-- Loads and validates data products
-- Analyzes linked data contracts within data products
-- Provides tools to query and analyze your data
-- Recognizes files automatically by their extensions (`.dataproduct.yaml` and `.datacontract.yaml`)
-- Handles data assets in a consistent way
+## Key Features
+
+- **Asset Management**: Load and organize data products and contracts from diverse sources
+- **Contract Compliance**: Ensure data usage complies with data contracts
+- **Smart Data Querying**: Query data using natural language through various storage systems
+- **Flexible Identification**: Support for various identifier formats (asset identifiers, URNs, plain IDs)
+- **Local & Remote Support**: Work with local files or remote systems like Data Mesh Manager
+
+## Use Cases
+
+- AI assistants exploring available data products
+- Analyzing data contract schemas and requirements
+- Executing SQL queries against data products
+- Validating data quality against contract specifications
+- Building data-aware AI applications
 
 ## Installation
 
@@ -21,116 +31,100 @@ This MCP server provides a simple interface for working with Data Products:
 
 ### Quick Install
 
-With uv (recommended):
+Using uv (recommended):
 ```bash
 uv pip install -e .
 ```
 
-With pip:
+Using pip:
 ```bash
 pip install -e .
 ```
 
 ## Running the Server
 
-Set up where your data files are stored:
+### Basic Usage
 
 ```bash
-# Point to your data files
+# Set location of data files
 export DATAASSET_SOURCE=/path/to/assets/directory
 
-# Run the server
-python -m datacontract_mcp.server
-
-# For development with MCP CLI
-mcp dev -m datacontract_mcp.server
+# Start the server
+python -m src.datacontract_mcp.server
 ```
 
-## Using with Claude Desktop
+### Development Mode
 
-Add this configuration for local development:
+```bash
+# For local development with MCP CLI
+mcp dev -m src.datacontract_mcp.server
+
+# For debugging (runs test query)
+python -m src.datacontract_mcp.server
+
+# For server mode
+python -m src.datacontract_mcp.server --server
+```
+
+### Integration with Claude Code or Claude Desktop
+
+Add this configuration to your Claude installation:
 
 ```json
 {
   "mcpServers": {
     "datacontract": {
-      "command": "uv",
-      "args": ["run", "--directory", "<abs_repo_path>", "python", "-m", "datacontract_mcp.server"],
+      "command": "python",
+      "args": ["-m", "src.datacontract_mcp.server", "--server"],
       "env": {
-        "DATAASSET_SOURCE": "<abs_repo_path>/dataassets"
+        "DATAASSET_SOURCE": "/path/to/your/dataassets"
       }
     }
   }
 }
 ```
 
-## Available Tools
+## Tools and Capabilities
 
-### Data Product Tools
+### Data Product Operations
 
-#### List Data Products
+| Tool | Description |
+|------|-------------|
+| `dataproducts_list` | List all available data products |
+| `dataproducts_get` | Retrieve a specific data product by identifier |
+| `dataproducts_get_output_schema` | Get schema for a data contract linked to a product output port |
+| `dataproducts_query` | Execute SQL queries against data product output ports |
 
-See all available Data Products:
+### Examples
 
+#### List Available Data Products
 ```
 dataproducts_list
 ```
 
-#### Get Data Product
-
-Get a specific Data Product:
-
+#### Get a Specific Data Product
 ```
-dataproducts_get(filename="shelf_warmers.dataproduct.yaml")
+dataproducts_get(identifier="local:product/orders.dataproduct.yaml")
 ```
-
-#### Validate Data Product
-
-Check if a Data Product is valid:
-
 ```
-dataproducts_validate(filename="shelf_warmers.dataproduct.yaml")
+dataproducts_get(identifier="datameshmanager:product/customers")
 ```
 
-#### Get Data Product Outputs
-
-Get all output ports from a Data Product, along with their linked contracts:
-
+#### Get Schema for a Data Contract
 ```
-dataproducts_get_outputs(filename="shelf_warmers.dataproduct.yaml")
+dataproducts_get_output_schema(identifier="local:contract/orders.datacontract.yaml")
 ```
-
-#### Get Output Schema
-
-Get the schema for a specific output port using its linked data contract:
-
 ```
-dataproducts_get_output_schema(
-    filename="shelf_warmers.dataproduct.yaml",
-    port_id="shelf_warmers"
-)
+dataproducts_get_output_schema(identifier="datameshmanager:contract/snowflake_customers_latest_npii_v1")
 ```
 
-#### Query Data Product
-
-Query data from a Data Product's output port:
-
+#### Query a Data Product
 ```
 dataproducts_query(
-    filename="shelf_warmers.dataproduct.yaml",
-    query="SELECT * FROM \"shelf_warmers\" LIMIT 10"
-)
-```
-
-With additional options:
-
-```
-dataproducts_query(
-    filename="shelf_warmers.dataproduct.yaml", 
-    query="SELECT * FROM \"shelf_warmers\" LIMIT 10",
-    port_id="shelf_warmers",   # Optional output port ID
-    server="local",            # Optional server key
-    model="shelf_warmers",     # Optional model key
+    identifier="datameshmanager:product/customers",
+    query="SELECT * FROM customers LIMIT 10;",
+    port_id="snowflake_customers_latest_npii_v1",
+    server="default",
     include_metadata=True
 )
 ```
@@ -139,48 +133,43 @@ dataproducts_query(
 
 The `examples` directory contains sample files for both data products and their supporting data contracts:
 
-### Data Products
+### Sample Data Products
+- `orders.dataproduct.yaml` - Customer order data
+- `shelf_warmers.dataproduct.yaml` - Products with no sales in 3+ months
+- `video_history.dataproduct.yaml` - Video viewing history data
 
-- `examples/shelf_warmers.dataproduct.yaml` - Shows which products haven't sold in 3 months
-- `examples/orders.dataproduct.yaml` - Order data with order details
-- `examples/video_history.dataproduct.yaml` - Video watching history
+### Sample Data Contracts
+- `orders.datacontract.yaml` - Defines order data structure and rules
+- `shelf_warmers.datacontract.yaml` - Contract for product inventory analysis
+- `video_history.datacontract.yaml` - Specifications for video consumption data
 
-### Supporting Data Contracts
-
-- `examples/shelf_warmers.datacontract.yaml` - Contract for shelf warmers data
-- `examples/orders.datacontract.yaml` - Sample order data contract (CSV format)
-- `examples/video_history.datacontract.yaml` - Video history data contract (CSV format)
-
-## Available Resources
-
-Access these built-in resources:
-
-- `dataproduct-ref://schema` - The official Data Product JSON schema
-- `dataproduct-ref://example` - A sample Data Product
-
-## Configuration
+## Configuration Options
 
 ### Environment Variables
 
-- `DATAASSET_SOURCE` - Where to find your data assets (both products and contracts)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATAASSET_SOURCE` | Directory containing data assets | Current directory |
+| `DATAMESH_MANAGER_API_KEY` | API key for Data Mesh Manager | None |
+| `DATAMESH_MANAGER_HOST` | Host URL for Data Mesh Manager | `https://api.datamesh-manager.com` |
 
-### AWS S3 Configuration
+### AWS S3 Configuration (for S3 data sources)
 
-To access data from S3:
+- `AWS_REGION` / `AWS_DEFAULT_REGION` - AWS region (default: `us-east-1`)
+- `S3_BUCKETS` - Allowed S3 buckets (comma-separated)
+- Authentication via profile (`AWS_PROFILE`) or credentials (`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`)
 
-- `AWS_REGION` or `AWS_DEFAULT_REGION` - AWS region (default: `us-east-1`)
-- `S3_BUCKETS` - List of allowed S3 buckets (comma-separated)
-- `S3_MAX_BUCKETS` - Maximum number of buckets (default: 10)
+## Debugging
 
-Authentication options:
-1. AWS Profile (for development): `AWS_PROFILE` or `S3_PROFILE`
-2. Direct credentials: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
-3. Default chain (environment variables, ~/.aws/credentials, IAM roles)
-
-### Testing Locally
+For troubleshooting, run the server with test queries:
 
 ```bash
-DATAASSET_SOURCE=<abs_repo_path>/dataassets mcp dev -m datacontract_mcp.server
+# Set environment variables for debugging
+export DATAASSET_SOURCE=/path/to/examples
+export DATAMESH_MANAGER_API_KEY=your_api_key  # If using Data Mesh Manager
+
+# Run server in debug mode 
+python -m src.datacontract_mcp.server
 ```
 
 ## License

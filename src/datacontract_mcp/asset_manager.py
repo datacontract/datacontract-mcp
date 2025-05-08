@@ -1,25 +1,76 @@
 """Unified manager for data contracts and data products."""
 
 import logging
-from enum import Enum
-from typing import Dict, List, Optional, Any, Union
+import contextlib
+from typing import Dict, List, Optional, Any, Union, Tuple, Generator
 
 from .asset_utils import (
     AssetLoadError,
     AssetParseError,
-    AssetQueryError
+    AssetQueryError,
+    parse_yaml
 )
 
-from . import datacontract
-from . import dataproduct
+from .asset_identifier import (
+    AssetIdentifier,
+    DataAssetType,
+    AssetLoadError as IdentifierLoadError
+)
+
+from .models_datacontract import ServerType
+from .query import get_query_strategy
 from .resources import docs
+
+# Define types for dictionaries
+OutputPortDict = Dict[str, Any]
+
+# Mapping of output port types to server types
+PORT_TYPE_TO_SERVER_TYPE = {
+    "s3": ServerType.S3,
+    "local": ServerType.LOCAL,
+    "file": ServerType.LOCAL,
+    "bigquery": ServerType.BIGQUERY,
+    "snowflake": ServerType.SNOWFLAKE,
+    "redshift": ServerType.REDSHIFT,
+    "postgres": ServerType.POSTGRES,
+}
 
 logger = logging.getLogger("datacontract-mcp.asset_manager")
 
-class DataAssetType(str, Enum):
-    """Types of data assets supported."""
-    DATA_CONTRACT = "contract"
-    DATA_PRODUCT = "product"
+@contextlib.contextmanager
+def handle_asset_errors(
+    operation_description: str,
+    context_identifier: Optional[Any] = None,
+    reraise_types: Tuple[type, ...] = (AssetLoadError, AssetParseError, AssetQueryError)
+) -> Generator[None, None, None]:
+    """
+    Context manager for consistent error handling across asset operations.
+
+    Args:
+        operation_description: Description of the operation being performed
+        context_identifier: Optional context identifier (like product ID or file path)
+        reraise_types: Tuple of exception types to re-raise with original type
+
+    Yields:
+        None
+
+    Raises:
+        Original exception if it's in reraise_types
+        AssetQueryError for all other exceptions
+    """
+    try:
+        yield
+    except reraise_types as e:
+        # Re-raise these exceptions directly
+        context_str = f" on {context_identifier}" if context_identifier else ""
+        logger.error(f"Error {operation_description}{context_str}: {str(e)}")
+        raise
+    except Exception as e:
+        # Wrap other exceptions as AssetQueryError
+        context_str = f" on {context_identifier}" if context_identifier else ""
+        error_msg = f"Unexpected error {operation_description}{context_str}: {str(e)}"
+        logger.error(error_msg)
+        raise AssetQueryError(error_msg) from e
 
 class DataAssetManager:
     """Manager for unified access to data contracts and data products."""
@@ -64,7 +115,7 @@ class DataAssetManager:
                 raise ValueError(f"Unsupported asset type: {asset_type}")
 
     @staticmethod
-    def list_assets(asset_type: DataAssetType) -> List[str]:
+    def list_assets(asset_type: DataAssetType) -> List[AssetIdentifier]:
         """
         List all available assets of a specific type.
 
@@ -72,271 +123,60 @@ class DataAssetManager:
             asset_type: Type of asset (contract or product)
 
         Returns:
-            List of filenames
+            List of AssetIdentifier objects
         """
-        match asset_type:
-            case DataAssetType.DATA_CONTRACT:
-                return datacontract.list_contract_files()
-            case DataAssetType.DATA_PRODUCT:
-                return dataproduct.list_product_files()
-            case _:
-                raise ValueError(f"Unsupported asset type: {asset_type}")
+        return AssetIdentifier.list_assets(asset_type)
 
     @staticmethod
-    def get_asset_content(asset_type: DataAssetType, filename: str) -> str:
+    def get_asset_content(asset_identifier: AssetIdentifier) -> str:
         """
-        Get the raw content of an asset file.
+        Get the raw content of an asset.
 
         Args:
-            asset_type: Type of asset (contract or product)
-            filename: Name of the asset file
+            asset_identifier: Asset identifier
 
         Returns:
-            File contents as string
-        """
-        match asset_type:
-            case DataAssetType.DATA_CONTRACT:
-                return datacontract.load_contract_file(filename)
-            case DataAssetType.DATA_PRODUCT:
-                return dataproduct.load_product_file(filename)
-            case _:
-                raise ValueError(f"Unsupported asset type: {asset_type}")
-
-    @staticmethod
-    def validate_asset(asset_type: DataAssetType, filename: str) -> Dict[str, Any]:
-        """
-        Validate an asset and return its structured representation.
-
-        Args:
-            asset_type: Type of asset (contract or product)
-            filename: Name of the asset file
-
-        Returns:
-            Validated asset as a dictionary
-        """
-        match asset_type:
-            case DataAssetType.DATA_CONTRACT:
-                contract = datacontract.get_contract(filename)
-                return contract.model_dump()
-            case DataAssetType.DATA_PRODUCT:
-                product = dataproduct.get_product(filename)
-                return product.model_dump()
-            case _:
-                raise ValueError(f"Unsupported asset type: {asset_type}")
-
-    # Product-specific methods
-    @staticmethod
-    def get_product_schema() -> str:
-        """Get the Data Product JSON schema."""
-        return DataAssetManager.get_schema(DataAssetType.DATA_PRODUCT)
-
-    @staticmethod
-    def get_product_example() -> str:
-        """Get an example Data Product."""
-        return DataAssetManager.get_example(DataAssetType.DATA_PRODUCT)
-
-    @staticmethod
-    def list_products() -> List[str]:
-        """List all available data products."""
-        return DataAssetManager.list_assets(DataAssetType.DATA_PRODUCT)
-
-    @staticmethod
-    def get_product(filename: str) -> Dict[str, Any]:
-        """Get a validated data product."""
-        return DataAssetManager.validate_asset(DataAssetType.DATA_PRODUCT, filename)
-
-    @staticmethod
-    def get_product_content(filename: str) -> str:
-        """Get raw content of a data product file."""
-        return DataAssetManager.get_asset_content(DataAssetType.DATA_PRODUCT, filename)
-
-    # Contract-specific methods (public)
-    @staticmethod
-    def get_contract(filename: str) -> Dict[str, Any]:
-        """Get a validated data contract."""
-        return DataAssetManager.validate_asset(DataAssetType.DATA_CONTRACT, filename)
-
-    # Contract query methods (public)
-    @staticmethod
-    def query_contract(
-        filename: str,
-        query: str,
-        server_key: Optional[str] = None,
-        model_key: Optional[str] = None,
-        include_metadata: bool = False
-    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """
-        Execute a query against a data contract.
-
-        Args:
-            filename: Name of the data contract file
-            query: SQL query to execute
-            server_key: Optional key of the server to use
-            model_key: Optional key of the model to use
-            include_metadata: Whether to include metadata in the response
-
-        Returns:
-            Query results (with or without metadata)
+            Asset contents as string
 
         Raises:
-            AssetLoadError: If the file is not found
-            AssetParseError: If contract is invalid
-            AssetQueryError: If query execution fails
-        """
-        return DataAssetManager._query_contract(
-            filename=filename,
-            query=query,
-            server_key=server_key,
-            model_key=model_key,
-            include_metadata=include_metadata
-        )
-
-    # Contract-related methods (internal)
-    @staticmethod
-    def _query_contract(
-        filename: str,
-        query: str,
-        server_key: Optional[str] = None,
-        model_key: Optional[str] = None,
-        include_metadata: bool = False
-    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """
-        Execute a query against a data contract.
-
-        Args:
-            filename: Name of the data contract file
-            query: SQL query to execute
-            server_key: Optional key of the server to use
-            model_key: Optional key of the model to use
-            include_metadata: Whether to include metadata in the response
-
-        Returns:
-            Query results (with or without metadata)
-
-        Raises:
-            AssetLoadError: If the file is not found
-            AssetParseError: If contract is invalid
-            AssetQueryError: If query execution fails
+            AssetLoadError: If loading fails
         """
         try:
-            result = datacontract.query_contract(
-                filename=filename,
-                query=query,
-                server_key=server_key,
-                model_key=model_key
-            )
-
-            return result.model_dump() if include_metadata else result.records
-        except (AssetLoadError, AssetParseError, AssetQueryError) as e:
-            # Re-raise with more context about the specific operation
-            logger.error(f"Error querying contract {filename}: {str(e)}")
-            raise
+            return asset_identifier.load_content()
+        except IdentifierLoadError as e:
+            # Convert identifier-specific error to the general asset error
+            raise AssetLoadError(str(e))
 
     @staticmethod
-    def _find_related_assets() -> List[Dict[str, Any]]:
+    def validate_asset(asset_identifier: AssetIdentifier) -> Dict[str, Any]:
         """
-        Find relationships between data products and data contracts.
-
-        Returns:
-            List of dictionaries with relationship information
-        """
-        product_files = DataAssetManager.list_assets(DataAssetType.DATA_PRODUCT)
-        contract_files = DataAssetManager.list_assets(DataAssetType.DATA_CONTRACT)
-
-        # Map of contract IDs to contract details
-        contract_map = {}
-        for cf in contract_files:
-            try:
-                contract = datacontract.get_contract(cf)
-                contract_map[contract.id] = {
-                    "id": contract.id,
-                    "title": contract.info.title,
-                    "filename": cf
-                }
-            except Exception as e:
-                logger.warning(f"Error loading data contract {cf}: {str(e)}")
-
-        # Find relationships
-        relationships = []
-        for product_file in product_files:
-            try:
-                product = dataproduct.get_product(product_file)
-
-                # Skip products without output ports
-                if not product.outputPorts:
-                    continue
-
-                # Check each output port for a data contract reference
-                for port in product.outputPorts:
-                    if (contract_id := port.dataContractId) and contract_id in contract_map:
-                        contract_info = contract_map[contract_id]
-
-                        relationships.append({
-                            "product": {
-                                "id": product.id,
-                                "title": product.info.title,
-                                "filename": product_file
-                            },
-                            "output_port": {
-                                "id": port.id,
-                                "name": port.name
-                            },
-                            "contract": contract_info
-                        })
-            except Exception as e:
-                logger.warning(f"Error loading data product {product_file}: {str(e)}")
-
-        return relationships
-
-    # Product output port methods (public)
-    @staticmethod
-    def get_product_outputs(filename: str) -> Dict[str, Any]:
-        """
-        Get all output ports from a data product with linked contracts.
+        Parse an asset and return its dictionary representation.
+        Note: This method no longer performs schema validation.
 
         Args:
-            filename: Name of the data product file
+            asset_identifier: Asset identifier
 
         Returns:
-            Dictionary with output port information and any linked contracts
+            Asset as a dictionary with id and info fields
+
+        Raises:
+            AssetLoadError: If loading fails
+            AssetParseError: If parsing fails
         """
-        # Get the product
-        product_dict = DataAssetManager.validate_asset(DataAssetType.DATA_PRODUCT, filename)
+        with handle_asset_errors("parsing asset", asset_identifier):
+            # Load the content
+            content = asset_identifier.load_content()
 
-        # Get relationship information
-        relationships = DataAssetManager._find_related_assets()
-        product_relationships = {
-            rel["output_port"]["id"]: rel["contract"]
-            for rel in relationships
-            if rel["product"]["filename"] == filename
-        }
-
-        # Build enhanced output ports
-        output_ports = [
-            {
-                "id": port["id"],
-                "name": port.get("name", ""),
-                "description": port.get("description", ""),
-                "type": port.get("type", ""),
-                "location": port.get("location", ""),
-                **({"contract": product_relationships[port["id"]]} if port["id"] in product_relationships else {})
-            }
-            for port in product_dict.get("outputPorts", [])
-        ]
-
-        return {
-            "product_id": product_dict["id"],
-            "product_name": product_dict["info"]["title"],
-            "output_ports": output_ports
-        }
+            # Parse the content into a dictionary
+            return parse_yaml(content)
 
     @staticmethod
-    def get_output_schema(filename: str, port_id: str) -> Dict[str, Any]:
+    def get_output_schema(product_identifier: AssetIdentifier, port_id: str) -> Dict[str, Any]:
         """
         Get the schema for a specific output port (using its linked data contract).
 
         Args:
-            filename: Name of the data product file
+            product_identifier: Identifier for the data product
             port_id: ID of the output port
 
         Returns:
@@ -346,13 +186,13 @@ class DataAssetManager:
         relationships = DataAssetManager._find_related_assets()
         matching_rel = next(
             (rel for rel in relationships
-             if rel["product"]["filename"] == filename and rel["output_port"]["id"] == port_id),
+             if rel["product"]["identifier"] == product_identifier and rel["output_port"]["id"] == port_id),
             None
         )
 
         if not matching_rel:
             # Check if the port exists but has no contract
-            product_dict = DataAssetManager.validate_asset(DataAssetType.DATA_PRODUCT, filename)
+            product_dict = DataAssetManager.validate_asset(product_identifier)
             port = next(
                 (p for p in product_dict.get("outputPorts", []) if p["id"] == port_id),
                 None
@@ -365,133 +205,667 @@ class DataAssetManager:
                 }
 
             return {
-                "error": f"Output port '{port_id}' not found in data product '{filename}'"
+                "error": f"Output port '{port_id}' not found in data product '{product_identifier}'"
             }
 
         # Get the contract details
-        contract_filename = matching_rel["contract"]["filename"]
-        contract_dict = DataAssetManager.validate_asset(DataAssetType.DATA_CONTRACT, contract_filename)
+        contract_identifier = matching_rel["contract"]["identifier"]
+        contract_dict = DataAssetManager.validate_asset(contract_identifier)
 
-        # Extract schema information from contract
+        # Extract model information
+        models = DataAssetManager._extract_contract_models(contract_dict)
+
+        # Return schema information
         return {
             "output_port": port_id,
             "contract_id": contract_dict["id"],
-            "models": {
-                model_name: {
-                    "type": model_data.get("type", ""),
-                    "description": model_data.get("description", ""),
-                    "fields": model_data.get("fields", {})
-                }
-                for model_name, model_data in contract_dict.get("models", {}).items()
-            }
+            "models": models
         }
 
     @staticmethod
     def query_product(
-        product_filename: str,
-        query: str,
-        port_id: Optional[str] = None,
-        server_key: Optional[str] = None,
-        model_key: Optional[str] = None,
-        include_metadata: bool = False
+            product_identifier: AssetIdentifier,
+            query: str,
+            port_id: Optional[str] = None,
+            server_key: Optional[str] = None,
+            model_key: Optional[str] = None,
+            include_metadata: bool = False
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
-        Query a data contract associated with a data product output port.
+        Query data from a data product output port.
+
+        This method can work in two ways:
+        1. If the output port has a reference to a data contract, it will use that contract
+        2. If no data contract is available, it will query the output port directly using its server information
 
         Args:
-            product_filename: Name of the data product file
+            product_identifier: Identifier for the data product
             query: SQL query to execute
             port_id: Optional ID of the output port (uses first port if not specified)
-            server_key: Optional key of the server to use in the contract
-            model_key: Optional key of the model to use in the contract
+            server_key: Optional key of the server to use in the contract (if using data contract)
+            model_key: Optional key of the model to use (if using data contract) or table name (if direct querying)
             include_metadata: Whether to include metadata in the response
 
         Returns:
-            Query results based on the associated data contract
+            If include_metadata is False: List of record dictionaries
+            If include_metadata is True: Dictionary with query metadata and results
 
         Raises:
             AssetLoadError: If files cannot be loaded
             AssetParseError: If the assets are invalid
             AssetQueryError: If the query execution fails or if required resources aren't found
         """
-        try:
-            # Get the data product
-            product = dataproduct.get_product(product_filename)
+        matching_contract_identifier = None  # Initialize to avoid fragile checking
+
+        with handle_asset_errors("querying product", product_identifier):
+            # Load and parse the data product using our helper
+            product = DataAssetManager._load_and_parse_asset(product_identifier)
 
             # Find the specified output port or use the first one
-            if port_id:
-                port = next(
-                    (p for p in product.outputPorts if p.id == port_id),
-                    None
-                )
-                if not port:
-                    raise AssetQueryError(f"Output port '{port_id}' not found in product {product_filename}")
-            else:
-                # Check if outputPorts exists and has elements
-                if not product.outputPorts:
-                    raise AssetQueryError(f"Data product {product_filename} has no output ports")
-                port = product.outputPorts[0]
+            port = DataAssetManager._get_output_port(product, port_id)
 
             # Check if the port has a data contract reference
-            if not (contract_id := port.dataContractId):
-                raise AssetQueryError(f"Output port '{port.id}' doesn't reference a data contract")
+            port_id = port.get("id", "unknown")
+            contract_id = port.get("dataContractId")
 
-            # Find the contract file by ID
-            try:
-                # Use list comprehension with filtering to get potential contract files
-                matching_contracts = []
-                for cf in datacontract.list_contract_files():
-                    try:
-                        contract = datacontract.get_contract(cf)
-                        if contract.id == contract_id:
-                            matching_contracts.append((cf, contract))
-                    except (AssetLoadError, AssetParseError):
-                        continue
+            if contract_id:
+                # Find the contract by ID using our helper method
+                matching_contract_identifier, contract = DataAssetManager._find_contract_by_id(contract_id)
 
-                if not matching_contracts:
+                if not matching_contract_identifier or not contract:
                     raise AssetQueryError(f"Couldn't find data contract with ID '{contract_id}'")
 
-                # Use the first matching contract
-                contract_filename, contract = matching_contracts[0]
-
-                # Query the contract
-                result = datacontract.query_contract(
-                    filename=contract_filename,
+                # Query the contract using our internal method
+                result = DataAssetManager._query_from_data_contract(
+                    contract=contract,
                     query=query,
                     server_key=server_key,
                     model_key=model_key
                 )
+            elif port.get("server"):
+                # If no contract but server info is available, query directly from the output port
+                result = DataAssetManager._query_from_data_product(
+                    port=port,
+                    query=query,
+                    model_key=model_key or port_id
+                )
+            else:
+                raise AssetQueryError(f"Output port '{port_id}' has neither a data contract reference nor server information")
 
-                # Format the response
-                if include_metadata:
-                    return {
-                        "product": {
-                            "id": product.id,
-                            "filename": product_filename,
-                            "output_port": port.id
-                        },
-                        "contract": {
-                            "id": contract_id,
-                            "filename": contract_filename
-                        },
-                        "query_result": result.model_dump()
-                    }
-                else:
-                    return result.records
+            # Format the response
+            return DataAssetManager._format_query_response(
+                result=result,
+                product=product,
+                product_identifier=product_identifier,
+                port=port,
+                query=query,
+                model_key=model_key,
+                matching_contract_identifier=matching_contract_identifier,
+                include_metadata=include_metadata
+            )
 
-            except (AssetLoadError, AssetParseError) as e:
-                raise AssetQueryError(f"Error accessing contract with ID '{contract_id}': {str(e)}")
+    @staticmethod
+    def _load_and_parse_asset(asset_identifier: AssetIdentifier) -> Dict[str, Any]:
+        """
+        Load and parse an asset as a dictionary.
 
-        except (AssetLoadError, AssetParseError) as e:
-            # Re-raise preserving the original error
-            logger.error(f"Error accessing assets for query: {str(e)}")
-            raise
-        except AssetQueryError as e:
-            # Re-raise preserving the original error
-            logger.error(f"Error executing query on product {product_filename}: {str(e)}")
-            raise
-        except Exception as e:
-            # Convert unexpected errors to AssetQueryError
-            error_msg = f"Unexpected error querying product {product_filename}: {str(e)}"
-            logger.error(error_msg)
-            raise AssetQueryError(error_msg) from e
+        Args:
+            asset_identifier: Identifier for the asset
+
+        Returns:
+            Parsed asset dictionary
+
+        Raises:
+            AssetLoadError: If loading fails
+            AssetParseError: If parsing fails
+        """
+        with handle_asset_errors("loading and parsing asset", asset_identifier):
+            content = DataAssetManager.get_asset_content(asset_identifier)
+            return parse_yaml(content)
+
+    @staticmethod
+    def _log_error(error_message: str, exception: Exception) -> None:
+        """
+        Log an error with a standard format.
+
+        Args:
+            error_message: Base error message
+            exception: The exception that was raised
+        """
+        logger.error(f"{error_message}: {str(exception)}")
+
+    @staticmethod
+    def _find_asset_by_type_and_id(
+            asset_type: DataAssetType,
+            asset_id: str
+    ) -> Tuple[Optional[AssetIdentifier], Optional[Dict[str, Any]]]:
+        """
+        Find an asset by its type and ID.
+
+        Args:
+            asset_type: Type of asset to find
+            asset_id: ID of the asset to find
+
+        Returns:
+            Tuple of (asset_identifier, asset_dict) if found, or (None, None) if not found
+        """
+        identifiers = DataAssetManager.list_assets(asset_type)
+
+        for identifier in identifiers:
+            try:
+                # Load and parse the asset
+                asset_dict = DataAssetManager._load_and_parse_asset(identifier)
+
+                if asset_dict.get("id") == asset_id:
+                    return identifier, asset_dict
+            except (AssetLoadError, AssetParseError):
+                continue
+
+        return None, None
+
+    @staticmethod
+    def _find_contract_by_id(contract_id: str) -> Tuple[Optional[AssetIdentifier], Optional[Dict[str, Any]]]:
+        """
+        Find a data contract by its ID.
+
+        Args:
+            contract_id: ID of the contract to find, which can be in various formats:
+                        - Simple ID (e.g., 'snowflake_customers_latest_npii_v1')
+                        - Source-prefixed ID (e.g., 'datameshmanager:contract/snowflake_customers_latest_npii_v1')
+                        - URN format (e.g., 'urn:datacontract:sales:customers')
+
+        Returns:
+            Tuple of (contract_identifier, contract_dict) if found, or (None, None) if not found
+        """
+        # First, extract the simple ID if in prefixed format
+        simple_id = contract_id
+        
+        # Handle source-prefixed format
+        if ":" in contract_id and "/" in contract_id:
+            parts = contract_id.split("/", 1)
+            if len(parts) > 1:
+                # Extract the actual ID part after the source:type/ prefix
+                simple_id = parts[1]
+        
+        # Also handle URN format if needed (urn:datacontract:domain:name)
+        elif contract_id.startswith("urn:datacontract:") and contract_id.count(":") >= 3:
+            # Get the last part of the URN which is typically the ID
+            simple_id = contract_id.split(":")[-1]
+            
+        logger.info(f"Looking for contract with ID '{contract_id}', simplified to '{simple_id}'")
+        
+        # Try to find by simple ID first
+        result = DataAssetManager._find_asset_by_type_and_id(
+            DataAssetType.DATA_CONTRACT, simple_id
+        )
+        
+        # If found, return the result
+        if result[0] is not None:
+            return result
+            
+        # If not found and the original ID was different, try with the original
+        if simple_id != contract_id:
+            logger.info(f"Contract not found with simplified ID, trying original ID: '{contract_id}'")
+            return DataAssetManager._find_asset_by_type_and_id(
+                DataAssetType.DATA_CONTRACT, contract_id
+            )
+            
+        # Not found with either ID
+        return None, None
+
+    @staticmethod
+    def _build_contract_map() -> Dict[str, Dict[str, Any]]:
+        """
+        Build a map of contract IDs to contract details.
+
+        Returns:
+            Dictionary mapping contract IDs to contract details
+        """
+        contract_identifiers = DataAssetManager.list_assets(DataAssetType.DATA_CONTRACT)
+        contract_map = {}
+
+        for contract_identifier in contract_identifiers:
+            try:
+                # Load and parse the contract
+                contract_data = DataAssetManager.validate_asset(contract_identifier)
+
+                # Store in map using the contract's ID
+                contract_map[contract_data["id"]] = {
+                    "id": contract_data["id"],
+                    "title": contract_data["info"]["title"],
+                    "identifier": contract_identifier,
+                    "display_id": str(contract_identifier)
+                }
+            except Exception as e:
+                logger.warning(f"Error loading data contract {contract_identifier}: {str(e)}")
+
+        return contract_map
+
+    @staticmethod
+    def _find_product_relationships(
+        product_identifier: AssetIdentifier,
+        product_data: Dict[str, Any],
+        contract_map: Dict[str, Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Find relationships between a data product and data contracts.
+
+        Args:
+            product_identifier: Identifier for the data product
+            product_data: Parsed data product
+            contract_map: Map of contract IDs to contract details
+
+        Returns:
+            List of relationship dictionaries
+        """
+        relationships = []
+
+        # Skip products without output ports
+        if not product_data.get("outputPorts"):
+            return relationships
+
+        # Check each output port for a data contract reference
+        for port in product_data["outputPorts"]:
+            if (contract_id := port.get("dataContractId")) and contract_id in contract_map:
+                contract_info = contract_map[contract_id]
+
+                relationships.append({
+                    "product": {
+                        "id": product_data["id"],
+                        "title": product_data["info"]["title"],
+                        "identifier": product_identifier,
+                        "display_id": str(product_identifier)
+                    },
+                    "output_port": {
+                        "id": port["id"],
+                        "name": port.get("name", "")
+                    },
+                    "contract": contract_info
+                })
+
+        return relationships
+
+    @staticmethod
+    def _find_related_assets() -> List[Dict[str, Any]]:
+        """
+        Find relationships between data products and data contracts.
+        Integrates both local files and DataMeshManager API sources if available.
+
+        Returns:
+            List of dictionaries with relationship information
+        """
+        # Get all products as AssetIdentifier objects
+        product_identifiers = DataAssetManager.list_assets(DataAssetType.DATA_PRODUCT)
+
+        # Build contract map
+        contract_map = DataAssetManager._build_contract_map()
+
+        # Find relationships
+        all_relationships = []
+        for product_identifier in product_identifiers:
+            try:
+                # Load and parse the product
+                product_data = DataAssetManager.validate_asset(product_identifier)
+
+                # Get relationships for this product
+                product_relationships = DataAssetManager._find_product_relationships(
+                    product_identifier, product_data, contract_map
+                )
+
+                all_relationships.extend(product_relationships)
+            except Exception as e:
+                logger.warning(f"Error loading data product {product_identifier}: {str(e)}")
+
+        return all_relationships
+
+    # Product output port methods (public)
+    @staticmethod
+    def _enhance_output_port(
+        port: Dict[str, Any],
+        related_contract: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Enhance an output port with additional information.
+
+        Args:
+            port: Raw output port data
+            related_contract: Optional related contract information
+
+        Returns:
+            Enhanced output port dictionary
+        """
+        enhanced_port = {
+            "id": port["id"],
+            "name": port.get("name", ""),
+            "description": port.get("description", ""),
+            "type": port.get("type", ""),
+            "location": port.get("location", ""),
+            "server": port.get("server"),  # Include server info if available
+        }
+
+        # Add contract information if available
+        if related_contract:
+            enhanced_port["contract"] = related_contract
+
+        return enhanced_port
+
+    @staticmethod
+    def _get_output_port(product: Dict[str, Any], port_id: Optional[str]) -> Dict[str, Any]:
+        """
+        Get an output port from a data product dictionary.
+
+        Args:
+            product: Data product dictionary
+            port_id: Optional ID of the output port (uses first port if not specified)
+
+        Returns:
+            The output port as a dictionary
+
+        Raises:
+            AssetQueryError: If the port is not found or if the product has no ports
+        """
+        # Get the product ID for error messages
+        product_id = product.get("id", "unknown")
+
+        # Get output ports
+        output_ports = product.get("outputPorts", [])
+        if not isinstance(output_ports, list):
+            raise AssetQueryError(f"Invalid outputPorts in product {product_id}")
+
+        if port_id:
+            # Find port by ID
+            port = next(
+                (p for p in output_ports if p.get("id") == port_id),
+                None
+            )
+            if not port:
+                raise AssetQueryError(f"Output port '{port_id}' not found in product {product_id}")
+        else:
+            # Check if outputPorts exists and has elements
+            if not output_ports:
+                raise AssetQueryError(f"Data product {product_id} has no output ports")
+            port = output_ports[0]
+
+        return port
+
+    @staticmethod
+    def _format_query_response(
+            result: Union[Dict[str, Any], List[Dict[str, Any]]],
+            product: Dict[str, Any],
+            product_identifier: AssetIdentifier,
+            port: Dict[str, Any],
+            query: str,
+            model_key: Optional[str],
+            matching_contract_identifier: Optional[AssetIdentifier] = None,
+            include_metadata: bool = False
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Format query response with optional metadata.
+
+        Args:
+            result: Query result (either result dictionary or raw records)
+            product: Data product dictionary
+            product_identifier: Data product identifier
+            port: Output port dictionary
+            query: SQL query executed
+            model_key: Model key used
+            matching_contract_identifier: Optional contract identifier
+            include_metadata: Whether to include metadata
+
+        Returns:
+            Formatted query response (raw records or metadata dictionary)
+        """
+        if not include_metadata:
+            return result.get("records", result) if isinstance(result, dict) and "records" in result else result
+
+        # Get product ID and port ID
+        product_id = product.get("id", "unknown")
+        port_id = port.get("id", "unknown")
+
+        # Format with metadata
+        metadata = {
+            "product": {
+                "id": product_id,
+                "identifier": str(product_identifier),
+                "output_port": port_id
+            }
+        }
+
+        # Add contract info if available
+        port_contract_id = port.get("dataContractId")
+        if port_contract_id and matching_contract_identifier:
+            metadata["contract"] = {
+                "id": port_contract_id,
+                "identifier": str(matching_contract_identifier)
+            }
+
+        # Add query result data
+        if isinstance(result, dict) and "records" in result:
+            metadata["query_result"] = result
+        else:
+            # Get server info
+            server_type = "unknown"
+            if "server" in port and isinstance(port["server"], dict):
+                server_type = port["server"].get("type", "unknown")
+
+            metadata["query_result"] = {
+                "records": result,
+                "query": query,
+                "model_key": model_key or port_id,
+                "server_type": server_type
+            }
+
+        return metadata
+
+    @staticmethod
+    def _create_server_config_from_port(port: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a server configuration from an output port dictionary.
+
+        Args:
+            port: Output port dictionary
+
+        Returns:
+            Server configuration dictionary
+
+        Raises:
+            AssetQueryError: If server information is missing
+        """
+        # Get port ID for error messages
+        port_id = port.get("id", "unknown")
+
+        # Get server information from port
+        server = port.get("server")
+        port_type = port.get("type")
+        port_location = port.get("location")
+
+        # Validate server information
+        if not server:
+            # Try using type and location if server is not specified
+            if port_type and port_location:
+                logger.warning(f"Output port '{port_id}' doesn't have server object, using type and location")
+                # Create simple server configuration from port type and location
+                return {"location": port_location}
+            else:
+                raise AssetQueryError("Output port doesn't have server information")
+        else:
+            # Return server as is
+            return server
+
+    @staticmethod
+    def _resolve_server_type(port: Dict[str, Any], server_config: Dict[str, Any]) -> ServerType:
+        """
+        Resolve the server type from port information and server configuration.
+
+        Args:
+            port: Output port dictionary
+            server_config: Server configuration dictionary
+
+        Returns:
+            Resolved ServerType
+
+        Raises:
+            AssetQueryError: If server type cannot be resolved
+        """
+        # Get port type from dictionary
+        port_type_orig = port.get("type")
+
+        # Get server config type
+        server_type_str = server_config.get("type", "")
+
+        # Normalize port type
+        port_type = port_type_orig.lower() if port_type_orig else server_type_str.lower()
+
+        # Look up server type in the mapping
+        server_type = PORT_TYPE_TO_SERVER_TYPE.get(port_type)
+
+        # Default to local if type is unknown but location exists
+        if server_type is None:
+            if "location" in server_config:
+                server_type = ServerType.LOCAL
+                logger.warning(f"Unknown server type '{port_type}', defaulting to LOCAL")
+            else:
+                raise AssetQueryError(f"Unsupported server type '{port_type}' for direct querying")
+
+        return server_type
+
+    @staticmethod
+    def _query_from_data_contract(
+            contract: Dict[str, Any],
+            query: str,
+            server_key: Optional[str] = None,
+            model_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a query against a data contract dictionary and return structured results.
+
+        Args:
+            contract: Contract dictionary
+            query: SQL query to execute
+            server_key: Optional key of the server to use
+            model_key: Optional key of the model to use
+
+        Returns:
+            Dictionary with query results and metadata
+
+        Raises:
+            AssetQueryError: If query execution fails
+        """
+        with handle_asset_errors("executing contract query", contract.get("id", "unknown")):
+            # Get servers and models
+            servers = contract.get("servers", {})
+            models = contract.get("models", {})
+
+            # Use defaults if not specified
+            server_key = server_key or next(iter(servers), None)
+            model_key = model_key or next(iter(models), None)
+
+            # Determine server to use
+            if not server_key:
+                raise AssetQueryError("No servers defined in contract")
+
+            if server_key not in servers:
+                raise AssetQueryError(f"Server '{server_key}' not found in contract")
+
+            server = servers[server_key]
+
+            # Determine model to use
+            if not model_key:
+                raise AssetQueryError("No models defined in contract")
+
+            if model_key not in models:
+                raise AssetQueryError(f"Model '{model_key}' not found in contract")
+
+            # Get server type
+            server_type = server.get("type")
+            if not server_type:
+                raise AssetQueryError("Server missing 'type' field")
+
+            # Convert string to enum if needed
+            if isinstance(server_type, str):
+                try:
+                    server_type = ServerType(server_type.lower())
+                except ValueError:
+                    logger.warning(f"Unknown server type '{server_type}', using as is")
+
+            # Get the appropriate query strategy and execute
+            strategy = get_query_strategy(server_type)
+
+            # Execute the query
+            records = strategy.execute(model_key, query, server)
+
+            # Return structured result as dictionary
+            return {
+                "records": records,
+                "query": query,
+                "model_key": model_key,
+                "server_key": server_key
+            }
+
+    @staticmethod
+    def _query_from_data_product(port: Dict[str, Any], query: str, model_key: str) -> Dict[str, Any]:
+        """
+        Query a data product output port directly without requiring a data contract.
+
+        Args:
+            port: The output port dictionary from the data product
+            query: SQL query to execute
+            model_key: The name to use for the queried model
+
+        Returns:
+            Dictionary with query results
+
+        Raises:
+            AssetQueryError: If the query execution fails
+        """
+        # Get port ID for error messages
+        port_id = port.get("id", "unknown") if isinstance(port, dict) else getattr(port, "id", "unknown")
+
+        with handle_asset_errors("executing direct port query", port_id):
+            # Create server configuration
+            server_config = DataAssetManager._create_server_config_from_port(port)
+
+            # Resolve server type
+            server_type = DataAssetManager._resolve_server_type(port, server_config)
+
+            # Add type to config
+            server_config["type"] = server_type
+
+            # For LOCAL type, ensure path is set (use location if path not available)
+            if server_type == ServerType.LOCAL and "path" not in server_config and "location" in server_config:
+                server_config["path"] = server_config["location"]
+
+            # Default model key to port id if not specified
+            effective_model_key = model_key or port_id
+
+            # Use query strategy to execute query
+            strategy = get_query_strategy(server_type)
+            records = strategy.execute(effective_model_key, query, server_config)
+
+            # Return result as dictionary
+            return {
+                "records": records,
+                "query": query,
+                "model_key": effective_model_key,
+                "server_key": "default"
+            }
+
+    @staticmethod
+    def _extract_contract_models(contract_dict: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract model information from a contract dictionary.
+
+        Args:
+            contract_dict: Validated contract dictionary
+
+        Returns:
+            Dictionary of model information
+        """
+        return {
+            model_name: {
+                "type": model_data.get("type", ""),
+                "description": model_data.get("description", ""),
+                "fields": model_data.get("fields", {})
+            }
+            for model_name, model_data in contract_dict.get("models", {}).items()
+        }

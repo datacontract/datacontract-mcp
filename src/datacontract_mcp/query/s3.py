@@ -40,7 +40,8 @@ import logging
 import os
 import tempfile
 import urllib.parse
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Callable
+from botocore.client import BaseClient
 
 from .base import DataQueryStrategy, create_duckdb_connection
 from ..models_datacontract import ServerFormat
@@ -76,7 +77,7 @@ class S3QueryStrategy(DataQueryStrategy):
             FileNotFoundError: If no matching files are found
         """
         # Extract and validate configuration
-        location, format, endpoint_url = self._extract_config(server_config)
+        location, format_enum, endpoint_url = self._extract_config(server_config)
 
         # Parse S3 location
         bucket_name, prefix = self._parse_s3_location(location)
@@ -92,13 +93,25 @@ class S3QueryStrategy(DataQueryStrategy):
             ServerFormat.DELTA: self._handle_delta,
         }
 
-        handler = handlers.get(format)
+        handler = handlers.get(format_enum)
+        # This should never happen as we already validated format_enum in _extract_config
         if not handler:
-            raise ValueError(f"Unsupported format '{format}' for S3 server")
+            raise ValueError(f"Unsupported format '{format_enum}' for S3 server")
 
-        return handler(model_key, query, bucket_name, prefix, s3_client, server_config)
+        # Use **kwargs pattern to handle different parameter names across handlers
+        kwargs = {
+            "model_key": model_key,
+            "query": query,
+            "bucket_name": bucket_name,
+            "prefix": prefix,
+            "s3_client": s3_client,
+            "_s3_client": s3_client,  # For handlers using _s3_client
+            "server_config": server_config,
+            "_server_config": server_config  # For handlers using _server_config
+        }
+        return handler(**kwargs)
 
-    def _extract_config(self, server_config: Dict[str, Any]) -> Tuple[str, str, Optional[str]]:
+    def _extract_config(self, server_config: Dict[str, Any]) -> Tuple[str, ServerFormat, Optional[str]]:
         """Extract and validate configuration parameters.
 
         Args:
@@ -108,18 +121,23 @@ class S3QueryStrategy(DataQueryStrategy):
             A tuple of (location, format, endpoint_url)
 
         Raises:
-            ValueError: If required configuration is missing
+            ValueError: If required configuration is missing or invalid
         """
         location = server_config.get('location')
-        format = server_config.get('format')
+        format_value = server_config.get('format')
         endpoint_url = server_config.get('endpointUrl')
 
         if not location:
             raise ValueError("S3 server must specify a 'location'")
-        if not format:
+        if not format_value:
             raise ValueError("S3 server must specify a 'format'")
 
-        return location, format, endpoint_url
+        # Normalize format to ServerFormat enum
+        format_enum = self.normalize_format(format_value)
+        if not format_enum:
+            raise ValueError(f"Unsupported format '{format_value}' for S3 server")
+
+        return location, format_enum, endpoint_url
 
     def _parse_s3_location(self, location: str) -> Tuple[str, str]:
         """Parse S3 URL into bucket name and prefix.
@@ -151,7 +169,7 @@ class S3QueryStrategy(DataQueryStrategy):
             )
 
         # Check bucket against max buckets limit when S3_MAX_BUCKETS is configured
-        if S3_MAX_BUCKETS > 0 and len(S3_BUCKETS) > S3_MAX_BUCKETS:
+        if 0 < S3_MAX_BUCKETS < len(S3_BUCKETS):
             logger.warning(
                 f"Too many buckets configured. Maximum allowed: {S3_MAX_BUCKETS}. "
                 f"Current count: {len(S3_BUCKETS)}. "
@@ -160,7 +178,7 @@ class S3QueryStrategy(DataQueryStrategy):
 
         return bucket_name, prefix
 
-    def _create_s3_client(self, endpoint_url: Optional[str] = None) -> Any:
+    def _create_s3_client(self, endpoint_url: Optional[str] = None) -> BaseClient:
         """Create an S3 client with credentials from environment variables.
 
         Args:
@@ -213,8 +231,70 @@ class S3QueryStrategy(DataQueryStrategy):
 
         return boto3.client('s3', **s3_kwargs)
 
+    def _get_s3_object(self, bucket_name: str, prefix: str, s3_client: BaseClient,
+                     file_suffix: Optional[str] = None) -> str:
+        """Get S3 object key matching prefix and optional suffix.
+
+        Args:
+            bucket_name: The S3 bucket name
+            prefix: The S3 object prefix
+            s3_client: The S3 client
+            file_suffix: Optional file suffix to filter objects (e.g., '.parquet')
+
+        Returns:
+            The S3 object key
+
+        Raises:
+            FileNotFoundError: If no matching files are found
+        """
+        # List objects using the prefix
+        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+
+        if 'Contents' not in response or not response['Contents']:
+            raise FileNotFoundError(f"No files found at s3://{bucket_name}/{prefix}")
+
+        # If a specific file suffix is requested, find the first matching file
+        if file_suffix:
+            for item in response['Contents']:
+                if item['Key'].endswith(file_suffix):
+                    return item['Key']
+            raise FileNotFoundError(f"No {file_suffix} files found at s3://{bucket_name}/{prefix}")
+
+        # Otherwise, use the first file matching the prefix
+        return response['Contents'][0]['Key']
+
+    def _execute_query_on_downloaded_file(self, model_key: str, query: str,
+                                         bucket_name: str, s3_key: str, s3_client: BaseClient,
+                                         file_suffix: str,
+                                         create_table_func: Callable[[Any, str, str], None]) -> List[Dict[str, Any]]:
+        """Execute query on a file downloaded from S3.
+
+        Args:
+            model_key: The name of the model to query
+            query: The SQL query to execute
+            bucket_name: The S3 bucket name
+            s3_key: The S3 object key
+            s3_client: The S3 client
+            file_suffix: File suffix for the temporary file
+            create_table_func: Function that creates the table in DuckDB
+
+        Returns:
+            Query results as list of dictionaries
+        """
+        with tempfile.NamedTemporaryFile(suffix=file_suffix) as temp_file, create_duckdb_connection() as conn:
+            s3_client.download_file(bucket_name, s3_key, temp_file.name)
+
+            # Create the table - delegated to format-specific function
+            create_table_func(conn, model_key, temp_file.name)
+
+            # Execute the query
+            df = conn.execute(query).fetchdf()
+
+            # Convert to records and return
+            return df.to_dict(orient="records")
+
     def _handle_csv(self, model_key: str, query: str, bucket_name: str, prefix: str,
-                   s3_client: Any, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+                   s3_client: BaseClient, _server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle CSV format from S3.
 
         Args:
@@ -223,7 +303,7 @@ class S3QueryStrategy(DataQueryStrategy):
             bucket_name: The S3 bucket name
             prefix: The S3 object prefix
             s3_client: The S3 client
-            server_config: The server configuration
+            _server_config: The server configuration (not used in this implementation)
 
         Returns:
             A list of query result records
@@ -233,27 +313,49 @@ class S3QueryStrategy(DataQueryStrategy):
         """
         logger.info(f"Querying S3 CSV data from {bucket_name}/{prefix}")
 
-        # List objects using the prefix
-        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        # Get the S3 object key
+        s3_key = self._get_s3_object(bucket_name, prefix, s3_client)
 
-        if 'Contents' not in response or not response['Contents']:
-            raise FileNotFoundError(f"No files found at s3://{bucket_name}/{prefix}")
-
-        # Use the first file matching the prefix
-        s3_key = response['Contents'][0]['Key']
-
-        with tempfile.NamedTemporaryFile(suffix='.csv') as temp_file, create_duckdb_connection() as conn:
-            s3_client.download_file(bucket_name, s3_key, temp_file.name)
-
-            # Load CSV data into DuckDB
+        # Define how to create the table for CSV format
+        def create_csv_table(conn, model_key, file_path):
             sql = f"""
             CREATE TABLE "{model_key}" AS
             SELECT * FROM read_csv(
-                '{temp_file.name}', 
+                '{file_path}', 
                 auto_type_candidates=['BIGINT','VARCHAR','BOOLEAN','DOUBLE']
             );
             """
             conn.execute(sql)
+
+        # Execute the query
+        return self._execute_query_on_downloaded_file(
+            model_key, query, bucket_name, s3_key, s3_client, '.csv', create_csv_table
+        )
+
+    def _execute_direct_s3_query(self, query: str,
+                              endpoint_url: Optional[str] = None,
+                              create_table_sql: str = None) -> List[Dict[str, Any]]:
+        """Execute a query directly against S3 without downloading.
+
+        Args:
+            query: The SQL query to execute
+            endpoint_url: Optional endpoint URL for S3-compatible storage
+            create_table_sql: SQL statement to create the table
+
+        Returns:
+            Query results as list of dictionaries
+
+        Raises:
+            Exception: If direct access fails
+        """
+        with create_duckdb_connection() as conn:
+            # For custom endpoints, need to set httpfs options
+            if endpoint_url:
+                conn.execute(f"SET s3_endpoint='{endpoint_url}'")
+
+            # Execute the SQL to create the table
+            if create_table_sql:
+                conn.execute(create_table_sql)
 
             # Execute the query
             df = conn.execute(query).fetchdf()
@@ -262,7 +364,7 @@ class S3QueryStrategy(DataQueryStrategy):
             return df.to_dict(orient="records")
 
     def _handle_parquet(self, model_key: str, query: str, bucket_name: str, prefix: str,
-                       s3_client: Any, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+                       s3_client: BaseClient, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle Parquet format from S3.
 
         Args:
@@ -281,34 +383,22 @@ class S3QueryStrategy(DataQueryStrategy):
         """
         logger.info(f"Querying S3 Parquet data from {bucket_name}/{prefix}")
         endpoint_url = server_config.get('endpointUrl')
+        s3_path = f"s3://{bucket_name}/{prefix}"
 
-        with create_duckdb_connection() as conn:
-            try:
-                # Try using direct S3 access with credentials from environment
-                s3_path = f"s3://{bucket_name}/{prefix}"
-                if endpoint_url:
-                    # For custom endpoints, need to set httpfs options
-                    conn.execute(f"SET s3_endpoint='{endpoint_url}'")
+        # Create SQL for direct S3 access
+        create_table_sql = f'CREATE TABLE "{model_key}" AS SELECT * FROM read_parquet(\'{s3_path}*\');'
 
-                # Create a table for the model
-                sql = f"""
-                CREATE TABLE "{model_key}" AS
-                SELECT * FROM read_parquet('{s3_path}*');
-                """
-                conn.execute(sql)
+        try:
+            # Try direct S3 access first
+            return self._execute_direct_s3_query(
+                query, endpoint_url, create_table_sql
+            )
+        except Exception as e:
+            logger.warning(f"Direct S3 access failed: {str(e)}, falling back to download")
+            return self._handle_parquet_with_download(model_key, query, bucket_name, prefix, s3_client)
 
-                # Execute the query
-                df = conn.execute(query).fetchdf()
-
-                # Convert to records and return
-                return df.to_dict(orient="records")
-
-            except Exception as e:
-                logger.warning(f"Direct S3 access failed: {str(e)}, falling back to download")
-                return self._handle_parquet_download(model_key, query, bucket_name, prefix, s3_client)
-
-    def _handle_parquet_download(self, model_key: str, query: str, bucket_name: str,
-                               prefix: str, s3_client: Any) -> List[Dict[str, Any]]:
+    def _handle_parquet_with_download(self, model_key: str, query: str, bucket_name: str,
+                                    prefix: str, s3_client: BaseClient) -> List[Dict[str, Any]]:
         """Handle Parquet format from S3 by downloading file.
 
         Args:
@@ -324,41 +414,24 @@ class S3QueryStrategy(DataQueryStrategy):
         Raises:
             FileNotFoundError: If no matching files are found
         """
-        # List objects using the prefix
-        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        # Get the S3 object key, filtering for .parquet files
+        s3_key = self._get_s3_object(bucket_name, prefix, s3_client, file_suffix='.parquet')
 
-        if 'Contents' not in response or not response['Contents']:
-            raise FileNotFoundError(f"No files found at s3://{bucket_name}/{prefix}")
-
-        # Find first parquet file
-        s3_key = None
-        for item in response['Contents']:
-            if item['Key'].endswith('.parquet'):
-                s3_key = item['Key']
-                break
-
-        if not s3_key:
-            raise FileNotFoundError(f"No parquet files found at s3://{bucket_name}/{prefix}")
-
-        # Create a temporary file to store the parquet
-        with tempfile.NamedTemporaryFile(suffix='.parquet') as temp_file, create_duckdb_connection() as conn:
-            s3_client.download_file(bucket_name, s3_key, temp_file.name)
-
-            # Load parquet data into DuckDB
+        # Define how to create the table for Parquet format
+        def create_parquet_table(conn, model_key, file_path):
             sql = f"""
             CREATE TABLE "{model_key}" AS
-            SELECT * FROM read_parquet('{temp_file.name}');
+            SELECT * FROM read_parquet('{file_path}');
             """
             conn.execute(sql)
 
-            # Execute the query
-            df = conn.execute(query).fetchdf()
-
-            # Convert to records and return
-            return df.to_dict(orient="records")
+        # Execute the query
+        return self._execute_query_on_downloaded_file(
+            model_key, query, bucket_name, s3_key, s3_client, '.parquet', create_parquet_table
+        )
 
     def _handle_json(self, model_key: str, query: str, bucket_name: str, prefix: str,
-                    s3_client: Any, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+                    s3_client: BaseClient, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle JSON format from S3.
 
         Args:
@@ -377,44 +450,36 @@ class S3QueryStrategy(DataQueryStrategy):
         """
         logger.info(f"Querying S3 JSON data from {bucket_name}/{prefix}")
 
-        # List objects using the prefix
-        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        # Get the S3 object key
+        s3_key = self._get_s3_object(bucket_name, prefix, s3_client)
 
-        if 'Contents' not in response or not response['Contents']:
-            raise FileNotFoundError(f"No files found at s3://{bucket_name}/{prefix}")
+        # Determine JSON format option based on delimiter
+        delimiter = server_config.get('delimiter')
+        json_option = "auto"  # Default option
 
-        # Use the first file matching the prefix
-        s3_key = response['Contents'][0]['Key']
+        if delimiter == "new_line":
+            json_option = "newline_delimited"
+        elif delimiter == "array":
+            json_option = "array"
 
-        with tempfile.NamedTemporaryFile(suffix='.json') as temp_file, create_duckdb_connection() as conn:
-            s3_client.download_file(bucket_name, s3_key, temp_file.name)
-
-            # Load JSON data into DuckDB, handling delimiter option
-            delimiter = server_config.get('delimiter')
-            json_option = "auto"  # Default option
-
-            if delimiter == "new_line":
-                json_option = "newline_delimited"
-            elif delimiter == "array":
-                json_option = "array"
-
+        # Define how to create the table for JSON format
+        def create_json_table(conn, model_key, file_path):
             sql = f"""
             CREATE TABLE "{model_key}" AS
             SELECT * FROM read_json(
-                '{temp_file.name}',
+                '{file_path}',
                 format='{json_option}'
             );
             """
             conn.execute(sql)
 
-            # Execute the query
-            df = conn.execute(query).fetchdf()
-
-            # Convert to records and return
-            return df.to_dict(orient="records")
+        # Execute the query
+        return self._execute_query_on_downloaded_file(
+            model_key, query, bucket_name, s3_key, s3_client, '.json', create_json_table
+        )
 
     def _handle_delta(self, model_key: str, query: str, bucket_name: str, prefix: str,
-                     s3_client: Any, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+                     _s3_client: BaseClient, server_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle Delta Lake format from S3.
 
         Args:
@@ -422,7 +487,7 @@ class S3QueryStrategy(DataQueryStrategy):
             query: The SQL query to execute
             bucket_name: The S3 bucket name
             prefix: The S3 object prefix
-            s3_client: The S3 client
+            _s3_client: The S3 client (not used in this implementation)
             server_config: The server configuration
 
         Returns:
@@ -433,35 +498,27 @@ class S3QueryStrategy(DataQueryStrategy):
         """
         logger.info(f"Querying S3 Delta Lake data from {bucket_name}/{prefix}")
         endpoint_url = server_config.get('endpointUrl')
+        s3_path = f"s3://{bucket_name}/{prefix}"
 
-        with create_duckdb_connection() as conn:
-            # Ensure DuckDB has Delta Lake extension loaded
-            try:
-                conn.execute("LOAD 'delta';")
-            except Exception as e:
-                raise ValueError(f"Delta Lake extension not available: {str(e)}")
+        # Define SQL for delta format
+        create_table_sql = f'CREATE TABLE "{model_key}" AS SELECT * FROM delta_scan(\'{s3_path}\');'
 
-            # Try using direct S3 access with credentials from environment
-            s3_path = f"s3://{bucket_name}/{prefix}"
-            if endpoint_url:
-                # For custom endpoints, need to set httpfs options
-                conn.execute(f"SET s3_endpoint='{endpoint_url}'")
+        try:
+            # Ensure DuckDB has Delta Lake extension loaded first
+            with create_duckdb_connection() as conn:
+                try:
+                    conn.execute("LOAD 'delta';")
+                except Exception as e:
+                    raise ValueError(f"Delta Lake extension not available: {str(e)}")
 
-            # Create a table for the model using Delta Lake format
-            sql = f"""
-            CREATE TABLE "{model_key}" AS
-            SELECT * FROM delta_scan('{s3_path}');
-            """
+            # Try direct S3 access
+            return self._execute_direct_s3_query(
+                query, endpoint_url, create_table_sql
+            )
 
-            try:
-                conn.execute(sql)
-
-                # Execute the query
-                df = conn.execute(query).fetchdf()
-
-                # Convert to records and return
-                return df.to_dict(orient="records")
-
-            except Exception as e:
-                logger.error(f"Failed to query Delta Lake format: {str(e)}")
-                raise ValueError(f"Failed to query Delta Lake format: {str(e)}")
+        except Exception as e:
+            # Delta Lake doesn't have a download fallback like Parquet
+            # because it requires the full directory structure
+            error_msg = f"Failed to query Delta Lake format: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
