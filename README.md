@@ -96,8 +96,7 @@ Add this configuration to your Claude installation:
 | `dataproducts_list` | List all available data products |
 | `dataproducts_get` | Retrieve a specific data product by identifier |
 | `dataproducts_get_output_schema` | Get schema for a data contract linked to a product output port |
-| `dataproducts_query` | Execute SQL queries against data product output ports |
-| `dataproducts_query_federated` | **(Alpha)** Execute SQL queries across multiple data products and join their results |
+| `dataproducts_query` | Execute SQL queries against one or multiple data product output ports |
 
 ### Examples
 
@@ -122,20 +121,22 @@ dataproducts_get_output_schema(identifier="local:contract/orders.datacontract.ya
 dataproducts_get_output_schema(identifier="datameshmanager:contract/snowflake_customers_latest_npii_v1")
 ```
 
-#### Query a Data Product
+#### Query a Single Data Product
 ```
 dataproducts_query(
-    identifier="datameshmanager:product/customers",
-    query="SELECT * FROM customers LIMIT 10;",
-    port_id="snowflake_customers_latest_npii_v1",
-    server="default",
+    sources=[
+        {
+            "product_id": "local:product/orders.dataproduct.yaml"
+        }
+    ],
+    query="SELECT * FROM orders LIMIT 10;",
     include_metadata=True
 )
 ```
 
 #### Execute a Federated Query (Alpha)
 ```
-dataproducts_query_federated(
+dataproducts_query(
     sources=[
         {
             "product_id": "local:product/orders.dataproduct.yaml",
@@ -150,6 +151,8 @@ dataproducts_query_federated(
     include_metadata=True
 )
 ```
+
+**Note**: Querying multiple data products at once is still in alpha status and may have limitations.
 
 ## Included Examples
 
