@@ -9,7 +9,6 @@ load_dotenv()
 from .asset_manager import DataAssetManager
 from .types import DataAssetType
 from .asset_identifier import AssetIdentifier
-from .query import QuerySource, FederatedQueryEngine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,13 +55,19 @@ IMPORTANT - ALWAYS follow these guidelines when working with data assets:
  - INCORRECT: Just using "orders_pii_v2" without the source prefix
 
 6. FEDERATED QUERY CAPABILITIES
- - Query data across multiple data products using the dataproducts_query_federated tool
+ - Query data across multiple data products using the dataproducts_query tool with multiple sources
  - Join data from different sources with SQL
  - Use aliases to reference tables in queries
 
-7. PLANNING FEDERATED QUERIES
+7. QUERY TABLE NAMES
+ - When writing SQL queries, use the actual table names from the data products
+ - For single source queries, the table name typically matches the product name (e.g., "orders" for orders.dataproduct.yaml)
+ - For federated queries, use the alias provided in the sources configuration
+ - DO NOT use generic names like "source_data" in your queries
+
+8. PLANNING FEDERATED QUERIES
  To effectively plan queries across multiple data products:
- 
+
  a) SCHEMA DISCOVERY
    - Get data product definitions with dataproducts_get
    - Extract output port information and their data contracts
@@ -83,8 +88,7 @@ Available tools:
 - dataproducts_list - Lists all available Data Products
 - dataproducts_get - Returns a single Data Product by identifier
 - dataproducts_get_output_schema - Gets the data contract schema for a specific output port
-- dataproducts_query - Query data from a data product's output port
-- dataproducts_query_federated - Query data across multiple data products
+- dataproducts_query - Query data from one or more data products
     """
 
 # Resources
@@ -147,83 +151,45 @@ async def dataproducts_get_output_port(identifier: str) -> str:
 
 @app.tool("dataproducts_query")
 async def dataproducts_query(
-    identifier: str,
-    query: str,
-    port_id: str = None,
-    server: str = None,
-    model: str = None,
-    include_metadata: bool = False
-) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-    """
-    Query data from a data product's output port.
-
-    Args:
-        identifier: The product identifier, which can be in different formats:
-                  - Asset identifier format: 'local:product/orders.dataproduct.yaml' or 'datameshmanager:product/123'
-                  - URN format: 'urn:dataproduct:checkout:orders'
-                  - Plain ID: 'orders'
-        query: SQL query to execute
-        port_id: Optional ID of the output port (uses first port if not specified)
-        server: Optional server key to use
-        model: Optional model key to use
-        include_metadata: Include metadata in the response
-
-    Returns:
-        Query results
-    """
-    return DataAssetManager.query_by_identifier_string(
-        identifier=identifier,
-        query=query,
-        port_id=port_id,
-        server=server,
-        model=model,
-        include_metadata=include_metadata
-    )
-
-@app.tool("dataproducts_query_federated")
-async def dataproducts_query_federated(
-    sources: List[Dict[str, str]],
+    sources: List[Dict[str, Any]],
     query: str,
     include_metadata: bool = False
 ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
     """
-    Execute a federated query across multiple data products.
-    
-    This tool enables you to join and query data from multiple data products in a single operation.
-    To plan effective federated queries:
-    
-    1. SCHEMA DISCOVERY
-       - First use dataproducts_get to examine each product's structure
-       - Check output ports and their associated data contracts
-       - Understand field names, types, and semantics for proper joins
-    
-    2. RELATIONSHIP ANALYSIS
-       - Look for common field names across products (e.g., customer_id, product_id)
-       - Check data contract field descriptions for relationship hints
-       - Consider field semantics and naming patterns
-    
-    3. QUERY OPTIMIZATION
-       - Use meaningful table aliases for readability
-       - Prefer specific column selection over SELECT *
-       - Join smaller datasets to larger ones when possible
-       - Consider type compatibility for join fields
-    
+    Query data from one or more data products.
+
     Args:
-        sources: List of source configurations, each containing:
+        sources: List of source configurations. Each source should contain:
                 - product_id: Full product identifier (required)
                 - port_id: Optional output port ID
                 - server: Optional server key
                 - model: Optional model key
-                - alias: Optional alias to use in the query
-        query: SQL query to execute across the sources
+                - alias: Optional alias to use in the query (recommended for multi-source queries)
+        query: SQL query to execute
         include_metadata: Whether to include metadata in the response
-    
+
     Returns:
-        Query results combined from all sources
-    
-    Example:
-        To join orders and customers data:
-        
+        Query results from either a single source or multiple joined sources
+
+    Notes:
+        - Table names in the SQL query should match the data structure in each source
+        - For single-source queries, use the name of the table in the data product (often the same as the product name)
+        - For federated queries, use the source's alias or refer to each table by its actual name
+
+    Examples:
+        Single product query:
+        ```
+        {
+            "sources": [
+                {
+                    "product_id": "local:product/orders.dataproduct.yaml"
+                }
+            ],
+            "query": "SELECT * FROM orders LIMIT 10"
+        }
+        ```
+
+        Federated query across multiple products:
         ```
         {
             "sources": [
@@ -244,52 +210,19 @@ async def dataproducts_query_federated(
         # Validate input
         if not sources:
             raise ValueError("At least one source must be provided")
-        
+
         if not query:
             raise ValueError("Query cannot be empty")
-        
-        # Convert source dictionaries to QuerySource objects
-        query_sources = []
-        for source_dict in sources:
-            if "product_id" not in source_dict:
-                raise ValueError(f"Missing required 'product_id' field in source: {source_dict}")
-            
-            # Create a QuerySource object from the dictionary
-            query_source = QuerySource(
-                product_id=source_dict["product_id"],
-                port_id=source_dict.get("port_id"),
-                server=source_dict.get("server"),
-                model=source_dict.get("model"),
-                alias=source_dict.get("alias")
-            )
-            query_sources.append(query_source)
-        
-        # Create a federated query engine
+
+        # Create an asset manager and execute the query
         asset_manager = DataAssetManager()
-        engine = FederatedQueryEngine(asset_manager)
-        
-        # Execute the query
-        results = engine.execute_query(query, sources=query_sources)
-        
-        # Format the result based on include_metadata flag
-        if include_metadata:
-            # Create metadata for federated query
-            metadata = {
-                "query": query,
-                "sources": [{"product_id": s.product_id, "port_id": s.port_id} for s in query_sources],
-                "federated": True,
-                "record_count": len(results)
-            }
-            
-            return {
-                "metadata": metadata,
-                "records": results
-            }
-        else:
-            return results
-            
+        return asset_manager.execute_query(
+            sources=sources,
+            query=query,
+            include_metadata=include_metadata
+        )
     except Exception as e:
-        logger.error(f"Error executing federated query: {str(e)}")
+        logger.error(f"Error executing query: {str(e)}")
         raise
 
 def main():

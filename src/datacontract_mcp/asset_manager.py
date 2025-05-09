@@ -75,6 +75,9 @@ def handle_asset_errors(
 class DataAssetManager:
     """Manager for unified access to data contracts and data products."""
 
+    def __init__(self):
+        """Initialize the DataAssetManager."""
+
     # Generic asset methods
     @staticmethod
     def get_schema(asset_type: DataAssetType) -> str:
@@ -124,7 +127,7 @@ class DataAssetManager:
             List of AssetIdentifier objects
         """
         return AssetSourceRegistry.list_assets(asset_type)
-        
+
     @staticmethod
     def get_asset_content(asset_identifier: AssetIdentifier) -> str:
         """
@@ -146,38 +149,19 @@ class DataAssetManager:
             raise AssetLoadError(str(e))
 
     @staticmethod
-    def get_asset_by_identifier_string(identifier: str) -> str:
-        """
-        Get asset content by parsing the identifier string.
-        
-        Args:
-            identifier: Asset identifier in string format
-            
-        Returns:
-            Asset content as string
-            
-        Raises:
-            ValueError: If identifier is invalid or doesn't match expected type
-            AssetLoadError: If loading fails
-        """
-        # Parse the identifier string
-        asset_identifier = AssetIdentifier.from_string(identifier)
-        return DataAssetManager.get_asset_content(asset_identifier)
-
-    @staticmethod
     def get_contract_by_id(identifier: str) -> str:
         """
         Get data contract content by ID, handling various identifier formats.
-        
+
         Args:
             identifier: The contract identifier, which can be in different formats:
                        - Asset identifier format: 'local:contract/orders.datacontract.yaml'
                        - URN format: 'urn:datacontract:checkout:orders-latest'
                        - Plain ID: 'orders-latest'
-                       
+
         Returns:
             Data contract content as string
-            
+
         Raises:
             ValueError: If no contract with the given ID is found
             AssetLoadError: If loading fails
@@ -212,81 +196,75 @@ class DataAssetManager:
                 logger.error(f"Error finding contract with ID '{identifier}': {str(e)}")
                 raise
 
-    @staticmethod
-    def query_by_identifier_string(
-        identifier: str,
+    def execute_query(
+        self,
+        sources: List[Dict[str, Any]],
         query: str,
-        port_id: Optional[str] = None,
-        server: Optional[str] = None,
-        model: Optional[str] = None,
         include_metadata: bool = False
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
-        Query a data product using its string identifier, handling various formats.
-        
+        Unified query method that handles both single-source and federated queries.
+
         Args:
-            identifier: The product identifier, which can be in different formats:
-                      - Asset identifier format: 'local:product/orders.dataproduct.yaml'
-                      - URN format: 'urn:dataproduct:checkout:orders'
-                      - Plain ID: 'orders'
+            sources: List of source configurations. Each source should have:
+                    - product_id: Full product identifier (required)
+                    - port_id: Optional output port ID
+                    - server: Optional server key
+                    - model: Optional model key
+                    - alias: Optional alias to use in the query
             query: SQL query to execute
-            port_id: Optional ID of the output port (uses first port if not specified)
-            server: Optional server key to use
-            model: Optional model key to use
-            include_metadata: Include metadata in the response
-            
+            include_metadata: Whether to include metadata in the response
+
         Returns:
             Query results
-            
+
         Raises:
-            ValueError: If identifier is invalid or no product is found
+            ValueError: If invalid parameters are provided
             AssetQueryError: If query execution fails
         """
-        # Check if this is an asset identifier format (contains : and / in expected format)
-        if ":" in identifier and "/" in identifier and identifier.split(":", 1)[1].split("/", 1)[0] == "product":
-            try:
-                # Parse as standard asset identifier
-                asset_identifier = AssetIdentifier.from_string(identifier)
+        # Import here to avoid circular dependency
+        from .query import QuerySource, FederatedQueryEngine
 
-                # Verify this is a product identifier
-                if not asset_identifier.is_product():
-                    raise ValueError(f"Identifier does not refer to a product: {identifier}")
+        if not sources:
+            raise ValueError("At least one source must be provided")
 
-                # Query using the asset identifier
-                return DataAssetManager.query_product(
-                    identifier=asset_identifier,
-                    query=query,
-                    port_id=port_id,
-                    server_key=server,
-                    model_key=model,
-                    include_metadata=include_metadata
-                )
-            except Exception as e:
-                logger.error(f"Error processing product identifier '{identifier}': {str(e)}")
-                raise
+        # Convert source dictionaries to QuerySource objects
+        query_sources = []
+        for source_dict in sources:
+            if "product_id" not in source_dict:
+                raise ValueError(f"Missing required 'product_id' field in source: {source_dict}")
+
+            query_source = QuerySource(
+                product_id=source_dict["product_id"],
+                port_id=source_dict.get("port_id"),
+                server=source_dict.get("server"),
+                model=source_dict.get("model"),
+                alias=source_dict.get("alias")
+            )
+            query_sources.append(query_source)
+
+        # Create a federated query engine and execute
+        engine = FederatedQueryEngine(self)
+        results = engine.execute_query(query, sources=query_sources)
+
+        # Format the result based on include_metadata flag
+        if include_metadata:
+            metadata = {
+                "query": query,
+                "sources": [{
+                    "product_id": s.product_id,
+                    "port_id": s.port_id
+                } for s in query_sources],
+                "federated": True,
+                "record_count": len(results)
+            }
+
+            return {
+                "metadata": metadata,
+                "records": results
+            }
         else:
-            # For URN format or plain ID, we need to find the product first
-            try:
-                # Find product by ID (using _find_asset_by_type_and_id under the hood)
-                product_identifier, product_dict = DataAssetManager._find_asset_by_type_and_id(
-                    DataAssetType.DATA_PRODUCT, identifier
-                )
-
-                if not product_identifier:
-                    raise ValueError(f"Could not find data product with ID: {identifier}")
-
-                # Query using the found product identifier
-                return DataAssetManager.query_product(
-                    identifier=product_identifier,
-                    query=query,
-                    port_id=port_id,
-                    server_key=server,
-                    model_key=model,
-                    include_metadata=include_metadata
-                )
-            except Exception as e:
-                logger.error(f"Error finding product with ID '{identifier}': {str(e)}")
-                raise
+            return results
 
     @staticmethod
     def query_product(
@@ -657,7 +635,7 @@ class DataAssetManager:
             for attr_name in dir(ServerType):
                 if attr_name.isupper() and getattr(ServerType, attr_name) == server_type:
                     return getattr(ServerType, attr_name)
-            
+
             # Fallback: convert to string if all else fails
             return str(server_type)
 
