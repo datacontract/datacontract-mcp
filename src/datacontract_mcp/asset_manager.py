@@ -124,7 +124,7 @@ class DataAssetManager:
             List of AssetIdentifier objects
         """
         return AssetSourceRegistry.list_assets(asset_type)
-
+        
     @staticmethod
     def get_asset_content(asset_identifier: AssetIdentifier) -> str:
         """
@@ -145,6 +145,148 @@ class DataAssetManager:
             # Convert source-specific error to the general asset error
             raise AssetLoadError(str(e))
 
+    @staticmethod
+    def get_asset_by_identifier_string(identifier: str) -> str:
+        """
+        Get asset content by parsing the identifier string.
+        
+        Args:
+            identifier: Asset identifier in string format
+            
+        Returns:
+            Asset content as string
+            
+        Raises:
+            ValueError: If identifier is invalid or doesn't match expected type
+            AssetLoadError: If loading fails
+        """
+        # Parse the identifier string
+        asset_identifier = AssetIdentifier.from_string(identifier)
+        return DataAssetManager.get_asset_content(asset_identifier)
+
+    @staticmethod
+    def get_contract_by_id(identifier: str) -> str:
+        """
+        Get data contract content by ID, handling various identifier formats.
+        
+        Args:
+            identifier: The contract identifier, which can be in different formats:
+                       - Asset identifier format: 'local:contract/orders.datacontract.yaml'
+                       - URN format: 'urn:datacontract:checkout:orders-latest'
+                       - Plain ID: 'orders-latest'
+                       
+        Returns:
+            Data contract content as string
+            
+        Raises:
+            ValueError: If no contract with the given ID is found
+            AssetLoadError: If loading fails
+        """
+        # Check if this is an asset identifier format (contains : and / in expected format)
+        if ":" in identifier and "/" in identifier and identifier.split(":", 1)[1].split("/", 1)[0] == "contract":
+            try:
+                # Parse as standard asset identifier
+                asset_identifier = AssetIdentifier.from_string(identifier)
+
+                # Verify this is a contract identifier
+                if not asset_identifier.is_contract():
+                    raise ValueError(f"Identifier does not refer to a data contract: {identifier}")
+
+                # Return the complete contract content
+                return DataAssetManager.get_asset_content(asset_identifier)
+            except Exception as e:
+                logger.error(f"Error processing contract identifier '{identifier}': {str(e)}")
+                raise
+        else:
+            # Handle URN format or plain ID by finding the contract by ID
+            try:
+                # Use helper method to find contract by ID
+                contract_identifier, contract_dict = DataAssetManager._find_contract_by_id(identifier)
+
+                if not contract_identifier:
+                    raise ValueError(f"Could not find data contract with ID: {identifier}")
+
+                # Return the complete contract content
+                return DataAssetManager.get_asset_content(contract_identifier)
+            except Exception as e:
+                logger.error(f"Error finding contract with ID '{identifier}': {str(e)}")
+                raise
+
+    @staticmethod
+    def query_by_identifier_string(
+        identifier: str,
+        query: str,
+        port_id: Optional[str] = None,
+        server: Optional[str] = None,
+        model: Optional[str] = None,
+        include_metadata: bool = False
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Query a data product using its string identifier, handling various formats.
+        
+        Args:
+            identifier: The product identifier, which can be in different formats:
+                      - Asset identifier format: 'local:product/orders.dataproduct.yaml'
+                      - URN format: 'urn:dataproduct:checkout:orders'
+                      - Plain ID: 'orders'
+            query: SQL query to execute
+            port_id: Optional ID of the output port (uses first port if not specified)
+            server: Optional server key to use
+            model: Optional model key to use
+            include_metadata: Include metadata in the response
+            
+        Returns:
+            Query results
+            
+        Raises:
+            ValueError: If identifier is invalid or no product is found
+            AssetQueryError: If query execution fails
+        """
+        # Check if this is an asset identifier format (contains : and / in expected format)
+        if ":" in identifier and "/" in identifier and identifier.split(":", 1)[1].split("/", 1)[0] == "product":
+            try:
+                # Parse as standard asset identifier
+                asset_identifier = AssetIdentifier.from_string(identifier)
+
+                # Verify this is a product identifier
+                if not asset_identifier.is_product():
+                    raise ValueError(f"Identifier does not refer to a product: {identifier}")
+
+                # Query using the asset identifier
+                return DataAssetManager.query_product(
+                    identifier=asset_identifier,
+                    query=query,
+                    port_id=port_id,
+                    server_key=server,
+                    model_key=model,
+                    include_metadata=include_metadata
+                )
+            except Exception as e:
+                logger.error(f"Error processing product identifier '{identifier}': {str(e)}")
+                raise
+        else:
+            # For URN format or plain ID, we need to find the product first
+            try:
+                # Find product by ID (using _find_asset_by_type_and_id under the hood)
+                product_identifier, product_dict = DataAssetManager._find_asset_by_type_and_id(
+                    DataAssetType.DATA_PRODUCT, identifier
+                )
+
+                if not product_identifier:
+                    raise ValueError(f"Could not find data product with ID: {identifier}")
+
+                # Query using the found product identifier
+                return DataAssetManager.query_product(
+                    identifier=product_identifier,
+                    query=query,
+                    port_id=port_id,
+                    server_key=server,
+                    model_key=model,
+                    include_metadata=include_metadata
+                )
+            except Exception as e:
+                logger.error(f"Error finding product with ID '{identifier}': {str(e)}")
+                raise
 
     @staticmethod
     def query_product(
