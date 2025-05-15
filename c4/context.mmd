@@ -7,12 +7,14 @@ graph TD
     Databricks[(Databricks)]
     S3[(S3)]
     DataMeshManager[(Data Mesh Manager)]
+    LocalFiles[(Local Files)]
     
     User -->|Discovers and queries data| DataProduct
     DataOwner -->|Defines data products and contracts| DataProduct
     DataProduct -->|Queries data from| Databricks
-    DataProduct -->|Reads data from| S3
+    DataProduct -->|Queries data from| S3
     DataProduct -->|Fetches metadata from| DataMeshManager
+    DataProduct -->|Fetches metadata and queries data from| LocalFiles
     
     %% Styling
     classDef person fill:#08427B,stroke:#073B6F,color:#fff
@@ -21,4 +23,4 @@ graph TD
     
     class User,DataOwner person
     class DataProduct system
-    class Databricks,S3,DataMeshManager external
+    class Databricks,S3,DataMeshManager,LocalFiles external

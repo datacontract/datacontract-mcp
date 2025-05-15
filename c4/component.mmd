@@ -38,11 +38,11 @@ graph TD
     DataSourceRegistry -->|Contains| S3DataPlugin
     DataSourceRegistry -->|Contains| DatabricksDataPlugin
     
-    LocalAssetPlugin -->|Reads from| LocalFiles
-    DMMAssetPlugin -->|Fetches from| DataMeshManager
-    LocalDataPlugin -->|Queries| LocalFiles
-    S3DataPlugin -->|Queries| S3
-    DatabricksDataPlugin -->|Queries| Databricks
+    LocalAssetPlugin -->|Fetches metadata from| LocalFiles
+    DMMAssetPlugin -->|Fetches metadata from| DataMeshManager
+    LocalDataPlugin -->|Queries data from| LocalFiles
+    S3DataPlugin -->|Queries data from| S3
+    DatabricksDataPlugin -->|Queries data from| Databricks
     
     %% Styling
     classDef component fill:#85BBF0,stroke:#78A8D8,color:#000

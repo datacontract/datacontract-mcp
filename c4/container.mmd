@@ -16,7 +16,7 @@ graph TD
     Server -->|Uses| AssetManager
     Server -->|Delegates queries to| QueryEngine
     AssetManager -->|Fetches metadata from| DataMeshManager
-    AssetManager -->|Reads metadata from| LocalFiles
+    AssetManager -->|Fetches metadata from| LocalFiles
     QueryEngine -->|Queries data from| Databricks
     QueryEngine -->|Queries data from| S3
     QueryEngine -->|Queries data from| LocalFiles
