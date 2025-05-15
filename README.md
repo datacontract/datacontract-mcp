@@ -1,6 +1,6 @@
-# Data Contract & Product MCP Server
+# Data Product MCP Server
 
-An MCP server designed to manage Data Products and Contracts - enabling AI-assisted data discovery, querying, and analysis.
+An MCP server designed to manage Data Products - enabling AI-assists to discover discover and query data products in a governed way.
 
 ## Overview
 
