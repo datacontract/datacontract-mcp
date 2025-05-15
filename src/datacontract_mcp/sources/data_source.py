@@ -21,6 +21,7 @@ class ServerType:
     REDSHIFT = "redshift"
     POSTGRES = "postgres"
     FILE = "file"  # Alias for LOCAL for backward compatibility
+    DATABRICKS = "databricks"
 
 
 class DataFormat:

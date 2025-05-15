@@ -19,6 +19,7 @@ ASSET_SOURCE_ENV_VARS = {
 DATA_SOURCE_ENV_VARS = {
     "local": None,  # Local data source doesn't require a specific env var
     "s3": None,     # S3 can use IAM roles, so no required env var
+    "databricks": "DATABRICKS_WORKSPACE_URL",  # Databricks workspace URL is required
 }
 
 # Additional environment variables
@@ -33,6 +34,13 @@ ADDITIONAL_ENV_VARS = {
         "AWS_REGION": "us-east-1",  # Default region
         "DATACONTRACT_S3_ALLOWED_BUCKETS": "",  # Comma-separated list of allowed buckets
         "DATACONTRACT_S3_MAX_BUCKETS": "10"  # Maximum number of buckets
+    },
+    
+    # Databricks configuration
+    "databricks": {
+        "DATABRICKS_TIMEOUT": "120",  # Default timeout in seconds
+        "DATABRICKS_CATALOG": "",     # Default catalog (optional)
+        "DATABRICKS_SCHEMA": "",      # Default schema (optional)
     }
 }
 
@@ -86,6 +94,21 @@ def get_config() -> Dict[str, Any]:
             "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
             "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
             "aws_session_token": os.getenv("AWS_SESSION_TOKEN")
+        }
+    }
+
+    # Databricks data source
+    workspace_url = os.getenv("DATABRICKS_WORKSPACE_URL")
+    config["data_sources"]["databricks"] = {
+        "enabled": bool(workspace_url),
+        "workspace_url": workspace_url,
+        "catalog": os.getenv("DATABRICKS_CATALOG", ""),
+        "schema": os.getenv("DATABRICKS_SCHEMA", ""),
+        "timeout": int(os.getenv("DATABRICKS_TIMEOUT", "120")),
+        "credentials": {
+            "token": os.getenv("DATABRICKS_TOKEN"),
+            "client_id": os.getenv("DATABRICKS_CLIENT_ID"),
+            "client_secret": os.getenv("DATABRICKS_CLIENT_SECRET"),
         }
     }
 

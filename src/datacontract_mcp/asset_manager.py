@@ -33,6 +33,7 @@ PORT_TYPE_TO_SERVER_TYPE = {
     "snowflake": ServerType.SNOWFLAKE,
     "redshift": ServerType.REDSHIFT,
     "postgres": ServerType.POSTGRES,
+    "databricks": ServerType.DATABRICKS,
 }
 
 logger = logging.getLogger("datacontract-mcp.asset_manager")

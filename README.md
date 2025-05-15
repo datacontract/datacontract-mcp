@@ -181,6 +181,7 @@ These plugins handle loading and listing data assets (products and contracts):
 These plugins handle the actual data querying:
 - **Local files**: Queries CSV, JSON, or Parquet files using DuckDB
 - **S3**: Queries data in S3 buckets using DuckDB's S3 integration
+- **Databricks**: Queries data from Databricks SQL warehouses
 
 The plugin architecture makes it easy to add support for additional asset sources (e.g., Git repositories, other APIs) and data sources (e.g., databases, data warehouses).
 
@@ -199,6 +200,15 @@ The plugin architecture makes it easy to add support for additional asset source
 - `AWS_REGION` / `AWS_DEFAULT_REGION` - AWS region (default: `us-east-1`)
 - `S3_BUCKETS` - Allowed S3 buckets (comma-separated)
 - Authentication via profile (`AWS_PROFILE`) or credentials (`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`)
+
+### Databricks Configuration (for Databricks data sources)
+
+- `DATABRICKS_WORKSPACE_URL` - Databricks workspace URL (required)
+- `DATABRICKS_TOKEN` - Personal access token for Databricks
+- `DATABRICKS_CLIENT_ID` / `DATABRICKS_CLIENT_SECRET` - OAuth client credentials (alternative to token)
+- `DATABRICKS_CATALOG` - Default catalog to use (optional)
+- `DATABRICKS_SCHEMA` - Default schema to use (optional)
+- `DATABRICKS_TIMEOUT` - Query execution timeout in seconds (default: 120)
 
 ## Debugging
 
