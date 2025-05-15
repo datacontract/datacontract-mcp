@@ -36,7 +36,7 @@ PORT_TYPE_TO_SERVER_TYPE = {
     "databricks": ServerType.DATABRICKS,
 }
 
-logger = logging.getLogger("datacontract-mcp.asset_manager")
+logger = logging.getLogger("dataproduct-mcp.asset_manager")
 
 @contextlib.contextmanager
 def handle_asset_errors(

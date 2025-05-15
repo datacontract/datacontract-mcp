@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Set
 
 from ..data_source import DataSourcePlugin, ServerType
 
-logger = logging.getLogger("datacontract-mcp.sources.data_plugins.s3")
+logger = logging.getLogger("dataproduct-mcp.sources.data_plugins.s3")
 
 
 def _get_env_region() -> str:

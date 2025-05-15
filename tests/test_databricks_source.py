@@ -17,8 +17,8 @@ def raise_import_error(name, *args):
     return __import__(name, *args)
 
 # Import the necessary modules
-from datacontract_mcp.sources.data_plugins.databricks import DatabricksDataSource
-from datacontract_mcp.sources.data_source import ServerType, DataSourceRegistry
+from dataproduct-mcp.sources.data_plugins.databricks import DatabricksDataSource
+from dataproduct-mcp.sources.data_source import ServerType, DataSourceRegistry
 
 
 class TestDatabricksDataSource(unittest.TestCase):

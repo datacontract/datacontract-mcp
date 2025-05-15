@@ -6,7 +6,7 @@ from typing import Dict, List, Any
 
 from .types import QueryExecutor, QuerySource
 
-logger = logging.getLogger("datacontract-mcp.query.federated")
+logger = logging.getLogger("dataproduct-mcp.query.federated")
 
 
 class FederatedQueryEngine(QueryExecutor):

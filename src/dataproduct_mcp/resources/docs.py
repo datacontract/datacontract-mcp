@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-logger = logging.getLogger("datacontract-mcp-server.resources.docs")
+logger = logging.getLogger("dataproduct-mcp-server.resources.docs")
 
 # Cache for loaded documentation
 _docs_cache: Dict[str, str] = {}

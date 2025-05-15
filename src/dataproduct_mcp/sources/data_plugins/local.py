@@ -6,7 +6,7 @@ from typing import Dict, List, Any
 
 from ..data_source import DataSourcePlugin, ServerType
 
-logger = logging.getLogger("datacontract-mcp.sources.data_plugins.local")
+logger = logging.getLogger("dataproduct-mcp.sources.data_plugins.local")
 
 # Global DuckDB connection pool
 _duckdb_connections = {}

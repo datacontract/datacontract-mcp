@@ -1,4 +1,4 @@
-"""Common type definitions for datacontract-mcp."""
+"""Common type definitions for dataproduct-mcp."""
 
 from enum import Enum
 

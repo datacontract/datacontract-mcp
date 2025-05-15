@@ -1,11 +1,11 @@
-"""YAML utilities for datacontract-mcp."""
+"""YAML utilities for dataproduct-mcp."""
 
 import logging
 import yaml
 import hashlib
 from typing import Dict, Any
 
-logger = logging.getLogger("datacontract-mcp.utils.yaml_utils")
+logger = logging.getLogger("dataproduct-mcp.utils.yaml_utils")
 
 
 class AssetParseError(Exception):

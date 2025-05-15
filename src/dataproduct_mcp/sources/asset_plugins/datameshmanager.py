@@ -12,7 +12,7 @@ from ...asset_manager import AssetLoadError
 from ..asset_source import AssetSourcePlugin
 from .datameshmanager_client import DataMeshManager
 
-logger = logging.getLogger("datacontract-mcp.sources.asset_plugins.datameshmanager")
+logger = logging.getLogger("dataproduct-mcp.sources.asset_plugins.datameshmanager")
 
 class DataMeshManagerAssetIdentifier(AssetIdentifier):
     """Asset identifier for Data Mesh Manager API sources."""

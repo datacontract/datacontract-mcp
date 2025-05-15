@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 else:
     AssetIdentifier = ForwardRef('AssetIdentifier')
 
-logger = logging.getLogger("datacontract-mcp.sources.asset_source")
+logger = logging.getLogger("dataproduct-mcp.sources.asset_source")
 
 
 class AssetSourcePlugin(ABC):

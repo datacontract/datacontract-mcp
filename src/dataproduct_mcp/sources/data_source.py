@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional, Type, ClassVar
 
 from ..config import get_source_config
 
-logger = logging.getLogger("datacontract-mcp.sources.data_source")
+logger = logging.getLogger("dataproduct-mcp.sources.data_source")
 
 
 class ServerType:

@@ -6,7 +6,7 @@ from typing import Dict, List, Any
 
 from ..data_source import DataSourcePlugin, ServerType
 
-logger = logging.getLogger("datacontract-mcp.sources.data_plugins.databricks")
+logger = logging.getLogger("dataproduct-mcp.sources.data_plugins.databricks")
 
 def _get_env_workspace_url() -> str:
     """Get Databricks workspace URL from environment variables."""

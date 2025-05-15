@@ -4,7 +4,7 @@ import os
 import logging
 from typing import Dict, Any, List, Literal
 
-logger = logging.getLogger("datacontract-mcp.config")
+logger = logging.getLogger("dataproduct-mcp.config")
 
 # Source types
 SourceType = Literal["asset", "data"]

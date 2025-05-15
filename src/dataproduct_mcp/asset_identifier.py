@@ -3,7 +3,7 @@
 import logging
 from typing import TYPE_CHECKING
 
-logger = logging.getLogger("datacontract-mcp.asset_identifier")
+logger = logging.getLogger("dataproduct-mcp.asset_identifier")
 
 # Avoid circular import
 if TYPE_CHECKING:

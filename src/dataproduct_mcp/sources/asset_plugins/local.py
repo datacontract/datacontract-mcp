@@ -10,7 +10,7 @@ from ...types import DataAssetType
 from ...asset_identifier import AssetIdentifier
 from ..asset_source import AssetSourcePlugin
 
-logger = logging.getLogger("datacontract-mcp.sources.asset_plugins.local")
+logger = logging.getLogger("dataproduct-mcp.sources.asset_plugins.local")
 
 from ...asset_manager import AssetLoadError
 

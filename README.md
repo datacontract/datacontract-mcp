@@ -53,20 +53,20 @@ pip install -e .
 export DATAASSET_SOURCE=/path/to/assets/directory
 
 # Start the server
-python -m src.datacontract_mcp.server
+python -m src.dataproduct_mcp.server
 ```
 
 ### Development Mode
 
 ```bash
 # For local development with MCP CLI
-mcp dev -m src.datacontract_mcp.server
+mcp dev -m src.dataproduct_mcp.server
 
 # For debugging (runs test query)
-python -m src.datacontract_mcp.server
+python -m src.dataproduct_mcp.server
 
 # For server mode
-python -m src.datacontract_mcp.server --server
+python -m src.dataproduct_mcp.server --server
 ```
 
 ### Integration with Claude Code or Claude Desktop
@@ -78,9 +78,9 @@ Add this configuration to your Claude installation:
   "mcpServers": {
     "datacontract": {
       "command": "uv",
-      "args": ["run", "--directory", "<path_to_folder>/datacontract-mcp", "python", "-m", "datacontract_mcp.server"],
+      "args": ["run", "--directory", "<path_to_folder>/dataproduct-mcp", "python", "-m", "dataproduct_mcp.server"],
       "env": {
-        "DATAASSET_SOURCE": "<path_to_folder>/datacontract-mcp/examples"
+        "DATAASSET_SOURCE": "<path_to_folder>/dataproduct-mcp/examples"
       }
     }
   }
@@ -220,7 +220,7 @@ export DATAASSET_SOURCE=/path/to/examples
 export DATAMESH_MANAGER_API_KEY=your_api_key  # If using Data Mesh Manager
 
 # Run server in debug mode 
-python -m src.datacontract_mcp.server
+python -m src.dataproduct_mcp.server
 ```
 
 ## License

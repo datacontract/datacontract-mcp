@@ -12,9 +12,9 @@ from .asset_identifier import AssetIdentifier
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("datacontract-mcp")
+logger = logging.getLogger("dataproduct-mcp")
 
-app = FastMCP("datacontract-mcp")
+app = FastMCP("dataproduct-mcp")
 
 # Prompts
 @app.prompt(name="Initial Prompt")
