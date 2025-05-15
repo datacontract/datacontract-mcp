@@ -76,7 +76,7 @@ Add this configuration to your Claude installation:
 ```json
 {
   "mcpServers": {
-    "datacontract": {
+    "dataproduct": {
       "command": "uv",
       "args": ["run", "--directory", "<path_to_folder>/dataproduct-mcp", "python", "-m", "dataproduct_mcp.server"],
       "env": {
