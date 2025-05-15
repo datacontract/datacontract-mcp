@@ -32,8 +32,8 @@ ADDITIONAL_ENV_VARS = {
     # Data sources
     "s3": {
         "AWS_REGION": "us-east-1",  # Default region
-        "DATACONTRACT_S3_ALLOWED_BUCKETS": "",  # Comma-separated list of allowed buckets
-        "DATACONTRACT_S3_MAX_BUCKETS": "10"  # Maximum number of buckets
+        "S3_ALLOWED_BUCKETS": "",  # Comma-separated list of allowed buckets
+        "S3_MAX_BUCKETS": "10"  # Maximum number of buckets
     },
     
     # Databricks configuration
@@ -87,8 +87,8 @@ def get_config() -> Dict[str, Any]:
     config["data_sources"]["s3"] = {
         "enabled": True,  # Will be checked based on DuckDB availability and AWS creds
         "region": os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1")),
-        "allowed_buckets": [b.strip() for b in os.getenv("DATACONTRACT_S3_ALLOWED_BUCKETS", "").split(",") if b.strip()],
-        "max_buckets": int(os.getenv("DATACONTRACT_S3_MAX_BUCKETS", "10")),
+        "allowed_buckets": [b.strip() for b in os.getenv("S3_ALLOWED_BUCKETS", "").split(",") if b.strip()],
+        "max_buckets": int(os.getenv("S3_MAX_BUCKETS", "10")),
         "endpoint_url": os.getenv("AWS_ENDPOINT_URL"),
         "credentials": {
             "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),

@@ -16,7 +16,7 @@ def _get_env_region() -> str:
 
 def _get_env_buckets() -> Set[str]:
     """Get allowed bucket names from environment variables."""
-    buckets_str = os.getenv("DATACONTRACT_S3_ALLOWED_BUCKETS", "")
+    buckets_str = os.getenv("S3_ALLOWED_BUCKETS", "")
     if not buckets_str:
         return set()
     return {bucket.strip() for bucket in buckets_str.split(",")}
@@ -25,7 +25,7 @@ def _get_env_buckets() -> Set[str]:
 def _get_env_max_buckets() -> int:
     """Get maximum number of buckets from environment variables."""
     try:
-        return int(os.getenv("DATACONTRACT_S3_MAX_BUCKETS", "10"))
+        return int(os.getenv("S3_MAX_BUCKETS", "10"))
     except ValueError:
         return 10
 
