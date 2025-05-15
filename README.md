@@ -29,7 +29,7 @@ The Data Contract MCP Server provides an AI-friendly interface to data products 
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - [uv](https://astral.sh/uv) (recommended) or pip
 
 ### Quick Install
@@ -212,11 +212,11 @@ The plugin architecture makes it easy to add support for additional asset source
 
 ## Development Setup
 
-Python base interpreter should be 3.10.x.
+Python base interpreter should be 3.11.x.
 
 ```bash
 # create venv
-python3.10 -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate
 
 # Install Requirements
@@ -231,7 +231,7 @@ pytest
 
 ```bash
 # make sure uv is installed
-uv python pin 3.10
+uv python pin 3.11
 uv pip install -e '.[dev]'
 uv run ruff check
 uv run pytest

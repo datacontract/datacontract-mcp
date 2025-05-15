@@ -8,7 +8,7 @@ authors = [
     { name = "Simon Harrer", email = "simon.harrer@innoq.com" },
     { name = "André Deuerling", email = "andre.deuerling@innoq.com" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "boto3>=1.33.0",
     "duckdb>=1.2.2",
