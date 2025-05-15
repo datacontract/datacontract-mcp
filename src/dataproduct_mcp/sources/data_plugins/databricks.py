@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from ..data_source import DataSourcePlugin, ServerType
 
@@ -57,7 +57,6 @@ class DatabricksDataSource(DataSourcePlugin):
         try:
             # Import Databricks SDK
             from databricks.sdk import WorkspaceClient
-            from databricks.sdk.service import sql
             
             # Get configuration from server_config, supporting both 'workspace_url' and 'host'
             workspace_url = server_config.get("workspace_url") or server_config.get("host", self._workspace_url)
@@ -137,8 +136,16 @@ class DatabricksDataSource(DataSourcePlugin):
     def is_available(self) -> bool:
         """Check if this data source is properly configured and available."""
         try:
-            from databricks.sdk import WorkspaceClient
-            
+            # Try importing databricks.sdk directly
+            try:
+                import databricks.sdk  # noqa: F401
+                is_importable = True
+            except ImportError:
+                is_importable = False
+                
+            if not is_importable:
+                return False
+                
             # Check if we have minimum required configuration
             if not self._workspace_url:
                 return False

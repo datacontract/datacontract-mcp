@@ -1,14 +1,14 @@
 import logging
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
 
 from dotenv import load_dotenv
 from mcp.server import FastMCP
 
-load_dotenv()
-
+from .asset_identifier import AssetIdentifier
 from .asset_manager import DataAssetManager
 from .types import DataAssetType
-from .asset_identifier import AssetIdentifier
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

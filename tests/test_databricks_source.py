@@ -1,9 +1,9 @@
 """Tests for the Databricks data source plugin."""
 
-import unittest
-from unittest.mock import MagicMock, patch
 import os
 import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
 # Create mock for databricks SDK
 sys.modules['databricks'] = MagicMock()
@@ -16,9 +16,10 @@ def raise_import_error(name, *args):
         raise ImportError(f"No module named '{name}'")
     return __import__(name, *args)
 
-# Import the necessary modules
+# Import the necessary modules after mocking
+# ruff: noqa: E402
 from dataproduct_mcp.sources.data_plugins.databricks import DatabricksDataSource
-from dataproduct_mcp.sources.data_source import ServerType, DataSourceRegistry
+from dataproduct_mcp.sources.data_source import DataSourceRegistry, ServerType
 
 
 class TestDatabricksDataSource(unittest.TestCase):

@@ -1,11 +1,10 @@
 """Data query source plugins for accessing and querying actual data."""
 
-import logging
 import importlib
+import logging
 import pkgutil
-
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Type, ClassVar
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 from ..config import get_source_config
 

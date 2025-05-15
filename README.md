@@ -210,19 +210,45 @@ The plugin architecture makes it easy to add support for additional asset source
 - `DATABRICKS_SCHEMA` - Default schema to use (optional)
 - `DATABRICKS_TIMEOUT` - Query execution timeout in seconds (default: 120)
 
-## Debugging
+## Development Setup
 
-For troubleshooting, run the server with test queries:
+Python base interpreter should be 3.11.x (unless working on 3.12 release candidate).
 
 ```bash
-# Set environment variables for debugging
-export DATAASSET_SOURCE=/path/to/examples
-export DATAMESH_MANAGER_API_KEY=your_api_key  # If using Data Mesh Manager
+# create venv
+python3.11 -m venv venv
+source venv/bin/activate
 
-# Run server in debug mode 
-python -m src.dataproduct_mcp.server
+# Install Requirements
+pip install --upgrade pip setuptools wheel
+pip install -e '.[dev]'
+pre-commit install
+pre-commit run --all-files
+pytest
 ```
+
+### Use uv (recommended)
+
+```bash
+# make sure uv is installed
+uv python pin 3.11
+uv pip install -e '.[dev]'
+uv run ruff check
+uv run pytest
+```
+
+## Contribution
+
+We are happy to receive your contributions. Propose your change in an issue or directly create a pull request with your improvements.
+
+## Related Tools
+
+- [Data Contract CLI](https://github.com/datacontract/datacontract-cli/) is an open-source command-line tool for working with data contracts.
+- [Data Contract Manager](https://www.datacontract-manager.com/) is a commercial tool to manage data contracts. It contains a web UI, access management, and data governance for a full enterprise data marketplace.
+- [Data Contract GPT](https://gpt.datacontract.com) is a custom GPT that can help you write data contracts.
+- [Data Contract Editor](https://editor.datacontract.com) is an editor for Data Contracts, including a live html preview.
+- [Data Contract Playground](https://data-catering.github.io/data-contract-playground/) allows you to validate and export your data contract to different formats within your browser.
 
 ## License
 
-MIT
+[MIT License](LICENSE)

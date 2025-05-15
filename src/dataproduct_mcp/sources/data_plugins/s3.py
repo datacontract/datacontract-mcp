@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List, Any, Set
+from typing import Any, Dict, List, Set
 
 from ..data_source import DataSourcePlugin, ServerType
 
@@ -245,13 +245,15 @@ class S3DataSource(DataSourcePlugin):
     def is_available(self) -> bool:
         """Check if this data source is properly configured and available."""
         try:
-            import duckdb
-
-            # Check if we have credentials
-            has_credentials = (
-                self._credentials.get("aws_access_key_id") is not None and
-                self._credentials.get("aws_secret_access_key") is not None
-            )
+            # Check for DuckDB dependency
+            import importlib.util
+            duckdb_spec = importlib.util.find_spec("duckdb")
+            if duckdb_spec is None:
+                return False
+                
+            # Check if AWS region is specified
+            if not self._region:
+                return False
 
             # If we have IAM role access (no credentials needed) or valid credentials
             return True

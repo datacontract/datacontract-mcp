@@ -1,9 +1,10 @@
 """YAML utilities for dataproduct-mcp."""
 
-import logging
-import yaml
 import hashlib
-from typing import Dict, Any
+import logging
+from typing import Any, Dict
+
+import yaml
 
 logger = logging.getLogger("dataproduct-mcp.utils.yaml_utils")
 

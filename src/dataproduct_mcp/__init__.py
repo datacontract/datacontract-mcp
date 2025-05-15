@@ -2,17 +2,17 @@
 
 # Import core modules for easier access
 from . import server
-from .sources.asset_plugins.datameshmanager_client import DataMeshManager
-from .types import DataAssetType
 from .asset_identifier import AssetIdentifier
-from .sources.asset_plugins.local import LocalAssetIdentifier
-from .sources.asset_plugins.datameshmanager import DataMeshManagerAssetIdentifier
-from .asset_manager import DataAssetManager
-from .asset_manager import AssetLoadError, AssetQueryError
-from .utils.yaml_utils import AssetParseError
+from .asset_manager import AssetLoadError, AssetQueryError, DataAssetManager
 
 # Import source registries (but not plugins - we'll let discovery handle that)
 from .sources import asset_source, data_source
+from .sources.asset_plugins.datameshmanager import DataMeshManagerAssetIdentifier
+from .sources.asset_plugins.datameshmanager_client import DataMeshManager
+from .sources.asset_plugins.local import LocalAssetIdentifier
+from .types import DataAssetType
+from .utils.yaml_utils import AssetParseError
+
 
 def main():
     """Main entry point for the package."""

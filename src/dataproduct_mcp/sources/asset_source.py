@@ -1,14 +1,13 @@
 """Source plugins for data asset metadata (data products and contracts)."""
 
-import logging
 import importlib
+import logging
 import pkgutil
-
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Type, ClassVar, TYPE_CHECKING, ForwardRef
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, ForwardRef, List, Optional, Type
 
+from ..config import get_enabled_sources, get_source_config
 from ..types import DataAssetType
-from ..config import get_source_config, get_enabled_sources
 
 # Use a forward reference for AssetIdentifier to avoid circular import
 if TYPE_CHECKING:

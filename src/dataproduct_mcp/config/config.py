@@ -1,8 +1,8 @@
 """Simple environment variable-based configuration."""
 
-import os
 import logging
-from typing import Dict, Any, List, Literal
+import os
+from typing import Any, Dict, List, Literal
 
 logger = logging.getLogger("dataproduct-mcp.config")
 

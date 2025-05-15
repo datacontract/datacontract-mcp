@@ -1,8 +1,8 @@
 """Federated query engine for executing queries across multiple data products."""
 
-import logging
 import concurrent.futures
-from typing import Dict, List, Any
+import logging
+from typing import Any, Dict, List
 
 from .types import QueryExecutor, QuerySource
 

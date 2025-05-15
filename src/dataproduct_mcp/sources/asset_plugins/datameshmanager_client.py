@@ -1,7 +1,8 @@
-import requests
 import json
-from typing import Dict, Any, Optional
 import logging
+from typing import Any, Dict, Optional
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class DataMeshManager:
             try:
                 error_json = response.json()
                 error_msg += f" - {error_json}"
-            except:
+            except ValueError:
                 error_msg += f" - {response.text}"
             logger.error(error_msg)
             raise

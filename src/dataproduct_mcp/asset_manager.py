@@ -1,10 +1,15 @@
 """Unified manager for data contracts and data products."""
 
-import logging
 import contextlib
-from typing import Dict, List, Optional, Any, Union, Tuple, Generator
+import logging
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
-from .utils.yaml_utils import parse_yaml, AssetParseError
+from .asset_identifier import AssetIdentifier
+from .resources import docs
+from .sources.asset_source import AssetSourceRegistry
+from .sources.data_source import DataSourceRegistry, ServerType
+from .types import DataAssetType
+from .utils.yaml_utils import AssetParseError, parse_yaml
 
 
 class AssetLoadError(Exception):
@@ -15,14 +20,6 @@ class AssetLoadError(Exception):
 class AssetQueryError(Exception):
     """Error raised when querying an asset fails."""
     pass
-
-from .types import DataAssetType
-from .asset_identifier import AssetIdentifier
-
-from .sources.data_source import ServerType
-from .sources.data_source import DataSourceRegistry
-from .sources.asset_source import AssetSourceRegistry
-from .resources import docs
 
 # Mapping of output port types to server types
 PORT_TYPE_TO_SERVER_TYPE = {
@@ -224,7 +221,7 @@ class DataAssetManager:
             AssetQueryError: If query execution fails
         """
         # Import here to avoid circular dependency
-        from .query import QuerySource, FederatedQueryEngine
+        from .query import FederatedQueryEngine, QuerySource
 
         if not sources:
             raise ValueError("At least one source must be provided")

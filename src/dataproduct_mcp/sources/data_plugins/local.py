@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from ..data_source import DataSourcePlugin, ServerType
 
@@ -57,7 +57,7 @@ def get_duckdb_pool(max_connections: int = 5, idle_timeout: int = 300) -> Dict[s
                 del _last_used_time[oldest_conn]
                 try:
                     conn.close()
-                except:
+                except Exception:
                     pass
             else:
                 # All connections in use and not expired, wait for one to become available
@@ -91,7 +91,7 @@ def get_duckdb_pool(max_connections: int = 5, idle_timeout: int = 300) -> Dict[s
         for conn_id in expired:
             try:
                 _duckdb_connections[conn_id].close()
-            except:
+            except Exception:
                 pass
             del _duckdb_connections[conn_id]
             del _last_used_time[conn_id]
@@ -218,8 +218,6 @@ class LocalDataSource(DataSourcePlugin):
             List of records as dictionaries
         """
         try:
-            import duckdb
-
             conn = None
             conn_id = None
 
@@ -296,8 +294,9 @@ class LocalDataSource(DataSourcePlugin):
     def is_available(self) -> bool:
         """Check if this data source is properly configured and available."""
         try:
-            import duckdb
-            return True
+            import importlib.util
+            duckdb_spec = importlib.util.find_spec("duckdb")
+            return duckdb_spec is not None
         except ImportError:
             return False
 

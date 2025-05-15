@@ -2,17 +2,17 @@
 
 import logging
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from ...types import DataAssetType
+import yaml
+
 from ...asset_identifier import AssetIdentifier
+from ...asset_manager import AssetLoadError
+from ...types import DataAssetType
 from ..asset_source import AssetSourcePlugin
 
 logger = logging.getLogger("dataproduct-mcp.sources.asset_plugins.local")
-
-from ...asset_manager import AssetLoadError
 
 
 class LocalAssetIdentifier(AssetIdentifier):

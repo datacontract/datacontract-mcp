@@ -1,8 +1,7 @@
 """Test that server can start up properly with Databricks implementation."""
 
 import unittest
-import sys
-import os
+
 
 class TestServerStartup(unittest.TestCase):
     """Test server startup."""
@@ -10,7 +9,7 @@ class TestServerStartup(unittest.TestCase):
     def test_import_server(self):
         """Test that server module can be imported without errors."""
         # This will fail if there are any import errors
-        from src.dataproduct_mcp import server
+        from dataproduct_mcp import server
         
         # Verify FastMCP app exists
         self.assertTrue(hasattr(server, 'app'))
@@ -18,7 +17,7 @@ class TestServerStartup(unittest.TestCase):
     def test_data_sources_available(self):
         """Test that data sources are available and properly registered."""
         # Import data source components
-        from src.dataproduct_mcp.sources.data_source import DataSourceRegistry, ServerType, DataSourcePlugin
+        from dataproduct_mcp.sources.data_source import DataSourcePlugin, DataSourceRegistry, ServerType
         
         # Force discovery of plugins
         DataSourceRegistry.discover_plugins()
@@ -39,8 +38,11 @@ class TestServerStartup(unittest.TestCase):
         
         # Check if Databricks SDK is importable
         try:
-            import databricks.sdk
-            print("Databricks SDK is installed and importable")
+            try:
+                import databricks.sdk  # noqa: F401
+                print("Databricks SDK is installed and importable")
+            except ImportError as e:
+                print(f"Databricks SDK import error: {e}")
             
             # Get the Databricks source instance
             databricks_source = DataSourceRegistry.get_source(ServerType.DATABRICKS)
@@ -57,7 +59,7 @@ class TestServerStartup(unittest.TestCase):
                     "DATABRICKS_TOKEN": "test-token"
                 }):
                     # Create a new instance with the mocked environment
-                    from src.dataproduct_mcp.sources.data_plugins.databricks import DatabricksDataSource
+                    from dataproduct_mcp.sources.data_plugins.databricks import DatabricksDataSource
                     test_source = DatabricksDataSource()
                     print(f"Test source with mock env vars - availability: {test_source.is_available()}")
                     print(f"Test source configuration: {test_source.get_configuration()}")

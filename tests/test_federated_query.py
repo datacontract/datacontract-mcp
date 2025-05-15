@@ -1,9 +1,9 @@
 """Tests for the federated query functionality."""
 
 import unittest
-from unittest.mock import MagicMock
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+from unittest.mock import MagicMock
 
 
 # Mock classes to avoid import issues

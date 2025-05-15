@@ -1,27 +1,48 @@
 [project]
 name = "dataproduct-mcp"
 version = "0.0.1"
-description = "MCP server to work with Data Contracts"
+description = "MCP server to work with Data Prodcuts and Data Contracts"
 readme = "README.md"
+authors = [
+    { name = "Jochen Christ", email = "jochen.christ@innoq.com" },
+    { name = "Simon Harrer", email = "simon.harrer@innoq.com" },
+    { name = "André Deuerling", email = "andre.deuerling@innoq.com" },
+]
 requires-python = ">=3.10"
 dependencies = [
     "boto3>=1.33.0",
     "duckdb>=1.2.2",
     "mcp>=1.1.0",
     "numpy>=2.0.0",
-    "pandas>=2.0.0",
-    "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
     "requests>=2.30.0",
     "databricks-sdk>=0.1.0",
 ]
 
-[build-system]
-requires = [ "hatchling",]
-build-backend = "hatchling.build"
-
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
-    "pyright>=1.1.389",
+    "pytest",
+    "ruff",
 ]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+#addopts = "-n 8" # run tests in parallel, you can disable parallel test execution with "pytest -n0" command
+log_level = "INFO"
+#log_cli = "true" #  activate live logging, do not use with -n 8 xdist option for parallel test execution: https://github.com/pytest-dev/pytest-xdist/issues/402
+log_cli_level = "INFO"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+    "I",   # re-order imports in alphabetic order
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]

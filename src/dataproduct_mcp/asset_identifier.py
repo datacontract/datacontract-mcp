@@ -7,7 +7,7 @@ logger = logging.getLogger("dataproduct-mcp.asset_identifier")
 
 # Avoid circular import
 if TYPE_CHECKING:
-    from .sources.asset_source import AssetSourceRegistry
+    pass
 
 
 class AssetIdentifier:
