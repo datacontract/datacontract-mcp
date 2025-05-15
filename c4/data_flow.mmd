@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant User as Data Consumer
+    participant Server as MCP Server
+    participant AssetMgr as Asset Manager
+    participant QueryEngine as Federated Query Engine
+    participant DataSource as Data Source Plugin
+    
+    User->>Server: Query data
+    Server->>AssetMgr: Resolve asset identifiers
+    AssetMgr-->>Server: Return asset metadata
+    
+    alt Single source query
+        Server->>DataSource: Direct query
+        DataSource-->>Server: Query results
+    else Federated query
+        Server->>QueryEngine: Execute federated query
+        QueryEngine->>DataSource: Query source 1
+        DataSource-->>QueryEngine: Source 1 results
+        QueryEngine->>DataSource: Query source 2
+        DataSource-->>QueryEngine: Source 2 results
+        QueryEngine->>QueryEngine: Join results
+        QueryEngine-->>Server: Combined results
+    end
+    
+    Server-->>User: Return query results

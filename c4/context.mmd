@@ -1,0 +1,24 @@
+graph TD
+    User([Data Consumer])
+    DataOwner([Data Owner])
+    
+    DataProduct[DataProduct MCP]
+    
+    Databricks[(Databricks)]
+    S3[(S3)]
+    DataMeshManager[(Data Mesh Manager)]
+    
+    User -->|Discovers and queries data| DataProduct
+    DataOwner -->|Defines data products and contracts| DataProduct
+    DataProduct -->|Queries data from| Databricks
+    DataProduct -->|Reads data from| S3
+    DataProduct -->|Fetches metadata from| DataMeshManager
+    
+    %% Styling
+    classDef person fill:#08427B,stroke:#073B6F,color:#fff
+    classDef system fill:#1168BD,stroke:#0B5DAB,color:#fff
+    classDef external fill:#666666,stroke:#0B5DAB,color:#fff
+    
+    class User,DataOwner person
+    class DataProduct system
+    class Databricks,S3,DataMeshManager external

@@ -1,0 +1,33 @@
+graph TD
+    User([Data Consumer])
+    
+    subgraph DataProductMCP[DataProduct MCP]
+        Server[MCP Server]
+        AssetManager[Asset Manager]
+        QueryEngine[Federated Query Engine]
+    end
+    
+    Databricks[(Databricks)]
+    S3[(S3)]
+    LocalFiles[(Local Files)]
+    DataMeshManager[(Data Mesh Manager)]
+    
+    User -->|Makes requests to| Server
+    Server -->|Uses| AssetManager
+    Server -->|Delegates queries to| QueryEngine
+    AssetManager -->|Fetches metadata from| DataMeshManager
+    AssetManager -->|Reads metadata from| LocalFiles
+    QueryEngine -->|Queries data from| Databricks
+    QueryEngine -->|Queries data from| S3
+    QueryEngine -->|Queries data from| LocalFiles
+    
+    %% Styling
+    classDef person fill:#08427B,stroke:#073B6F,color:#fff
+    classDef container fill:#438DD5,stroke:#3C7FC0,color:#fff
+    classDef external fill:#666666,stroke:#0B5DAB,color:#fff
+    classDef boundary fill:none,stroke:#666666,stroke-dasharray:5 5
+    
+    class User person
+    class Server,AssetManager,QueryEngine container
+    class Databricks,S3,LocalFiles,DataMeshManager external
+    class DataProductMCP boundary
