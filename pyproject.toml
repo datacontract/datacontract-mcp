@@ -2,11 +2,16 @@
 name = "dataproduct-mcp"
 version = "0.1.0"
 description = "MCP server to work with Data Prodcuts and Data Contracts"
+license = "MIT"
 readme = "README.md"
 authors = [
     { name = "Jochen Christ", email = "jochen.christ@innoq.com" },
     { name = "Simon Harrer", email = "simon.harrer@innoq.com" },
     { name = "André Deuerling", email = "andre.deuerling@innoq.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -22,10 +27,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "pre-commit>=3.7.1,<4.3.0",
     "pytest",
     "pytest-xdist",
     "ruff",
 ]
+
+[project.urls]
+Homepage = "https://cli.dataproduct-specification.com"
+Issues = "https://github.com/datacontract/dataproduct-mcp/issues"
 
 [build-system]
 requires = ["setuptools", "wheel"]
