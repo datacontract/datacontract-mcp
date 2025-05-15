@@ -1,6 +1,6 @@
 [project]
 name = "dataproduct-mcp"
-version = "0.0.1"
+version = "0.1.0"
 description = "MCP server to work with Data Prodcuts and Data Contracts"
 readme = "README.md"
 authors = [
