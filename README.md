@@ -1,5 +1,14 @@
 # Data Product MCP Server
 
+<p>
+  <a href="https://github.com/datacontract/dataproduct-mcp/actions/workflows/ci.yaml?query=branch%3Amain">
+    <img alt="Test Workflow" src="https://img.shields.io/github/actions/workflow/status/datacontract/dataproduct-mcp/ci.yaml?branch=main">
+  </a>
+  <a href="https://github.com/datacontract/dataproduct-mcp">
+    <img alt="Stars" src="https://img.shields.io/github/stars/datacontract/dataproduct-mcp"/>
+  </a>
+</p>
+
 An MCP server designed to manage Data Products - enabling AI-assists to discover discover and query data products in a governed way.
 
 ## Overview
