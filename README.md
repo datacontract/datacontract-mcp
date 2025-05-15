@@ -77,10 +77,10 @@ Add this configuration to your Claude installation:
 {
   "mcpServers": {
     "datacontract": {
-      "command": "python",
-      "args": ["-m", "src.datacontract_mcp.server", "--server"],
+      "command": "uv",
+      "args": ["run", "--directory", "<path_to_folder>/datacontract-mcp", "python", "-m", "datacontract_mcp.server"],
       "env": {
-        "DATAASSET_SOURCE": "/path/to/your/dataassets"
+        "DATAASSET_SOURCE": "<path_to_folder>/datacontract-mcp/examples"
       }
     }
   }
