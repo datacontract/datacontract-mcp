@@ -1,28 +1,28 @@
 # Data Product MCP Server
 
 <p>
-  <a href="https://github.com/datacontract/dataproduct-mcp/actions/workflows/ci.yaml?query=branch%3Amain">
-    <img alt="Test Workflow" src="https://img.shields.io/github/actions/workflow/status/datacontract/dataproduct-mcp/ci.yaml?branch=main">
-  </a>
-  <a href="https://github.com/datacontract/dataproduct-mcp">
-    <img alt="Stars" src="https://img.shields.io/github/stars/datacontract/dataproduct-mcp"/>
-  </a>
+  <a href="https://github.com/datacontract/dataproduct-mcp/actions/workflows/ci.yaml?query=branch%3Amain"><img alt="Test Workflow" src="https://img.shields.io/github/actions/workflow/status/datacontract/dataproduct-mcp/ci.yaml?branch=main"></a>
+  <a href="https://github.com/datacontract/dataproduct-mcp"><img alt="Stars" src="https://img.shields.io/github/stars/datacontract/dataproduct-mcp"/></a>
 </p>
 
-An MCP server designed to manage Data Products - enabling AI-assists to discover discover and query data products in a governed way.
+An MCP server designed to discover and query Data Products on any data platform in a governed way - enabling AI-assistants to answer any business question.
 
 ## Overview
 
-The Data Contract MCP Server provides an AI-friendly interface to data products and their associated data contracts. It enables LLM agents to locate, analyze, and query data effectively while adhering to data contract specifications.
+The Data Product MCP Server provides an interface for AI [clients](https://modelcontextprotocol.io/clients) to discover and query data products via [MCP](https://modelcontextprotocol.io/specification).
+It enables AI agents to locate, analyze, and execute queries data to answer business questions in natural language on all available business data products.
+
+## Example
+
+> What was the revenue in our webshop yesterday? What about cancellations? What were the reasons for them?
 
 ## Key Features
 
-- **Asset Management**: Load and organize data products and contracts from diverse sources
-- **Contract Compliance**: Ensure data usage complies with data contracts
-- **Smart Data Querying**: Query data using natural language through various storage systems
-- **Federated Queries (Alpha)**: Join data across multiple data products from different sources
-- **Flexible Identification**: Support for various identifier formats (asset identifiers, URNs, plain IDs)
-- **Local & Remote Support**: Work with local files or remote systems like Data Mesh Manager
+- **Discovery**: Find relevant data products. Data contracts provide the necessary schema and semantic context information.
+- **Governance Enforcement**: Automate access management and checks for terms of use.
+- **Data Querying**: Natural language questions are translated into SQL, executed, and augumented.
+- **Federated Queries (Alpha)**: Join data across multiple data products from different sources and technologies.
+- **Local & Remote Support**: Work with local data product repositories or remote data product marketplaces, such as [Data Mesh Manager](https://datamesh-manager.com/)
 - **Plugin Architecture**: Extensible plugin system for adding new asset sources and data sources
 
 ## Use Cases
