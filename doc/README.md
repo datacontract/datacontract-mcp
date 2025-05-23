@@ -1,22 +1,32 @@
-# C4 Diagrams for DataProduct MCP
+# Diagrams for DataProduct MCP
 
-This folder contains C4 model diagrams for the DataProduct MCP project, showing the architecture at different levels of abstraction using Mermaid syntax.
+## Feature Overview
 
-## Diagrams
+![Main features of the ata Product MCP Server](dataproduct-mcp.png)
+
+## C4
 
 The diagrams use standard Mermaid syntax for maximum IDE compatibility:
 
-### 1. Context Diagram (`context.mmd`)
+### 1. Context Diagram (`c4/context.mmd`)
 Shows the DataProduct MCP system in context with its users and external systems.
 
-### 2. Container Diagram (`container.mmd`)
+![Context Diagram](c4/context.mmd)
+
+### 2. Container Diagram (`c4/container.mmd`)
 Shows the major containers (applications/services) that make up the DataProduct MCP system.
 
-### 3. Component Diagram (`component.mmd`)
+![Container Diagram](c4/container.mmd)
+
+### 3. Component Diagram (`c4/component.mmd`)
 Shows the major components inside the MCP Server container.
 
-### 4. Data Flow Diagram (`data_flow.mmd`)
+![Component Diagram](c4/component.mmd)
+
+### 4. Data Flow Diagram (`c4/data_flow.mmd`)
 Shows the sequence of operations for handling data queries.
+
+![Data Flow Diagram](c4/data_flow.mmd)
 
 ## Color Coding
 
