@@ -11,22 +11,14 @@ The diagrams use standard Mermaid syntax for maximum IDE compatibility:
 ### 1. Context Diagram (`c4/context.mmd`)
 Shows the DataProduct MCP system in context with its users and external systems.
 
-![Context Diagram](c4/context.mmd)
-
 ### 2. Container Diagram (`c4/container.mmd`)
 Shows the major containers (applications/services) that make up the DataProduct MCP system.
-
-![Container Diagram](c4/container.mmd)
 
 ### 3. Component Diagram (`c4/component.mmd`)
 Shows the major components inside the MCP Server container.
 
-![Component Diagram](c4/component.mmd)
-
 ### 4. Data Flow Diagram (`c4/data_flow.mmd`)
 Shows the sequence of operations for handling data queries.
-
-![Data Flow Diagram](c4/data_flow.mmd)
 
 ## Color Coding
 
