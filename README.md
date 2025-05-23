@@ -7,6 +7,8 @@
 
 An MCP server designed to discover and query Data Products on any data platform in a governed way - enabling AI-assistants to answer any business question.
 
+![Main features of the ata Product MCP Server](doc/dataproduct-mcp.png)
+
 ## Overview
 
 The Data Product MCP Server provides an interface for AI [clients](https://modelcontextprotocol.io/clients) to discover and query data products via [MCP](https://modelcontextprotocol.io/specification).
